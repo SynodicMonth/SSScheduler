@@ -71,10 +71,12 @@ class Runner:
                     if self.debug:
                         print(f"initialize time: {duration:.6f}ms")
                     self.initialized = True
+                requests_json = [json.dumps(x) for x in self.requests]
+                drivers_json = [json.dumps(x) for x in self.drivers]
                 start_time = perf_counter()
-                scheduled = self.scheduler.schedule(self.clock, json.dumps(self.requests), json.dumps(self.drivers))
-                scheduled = json.loads(scheduled)
+                scheduled_json = self.scheduler.schedule(self.clock, requests_json, drivers_json)
                 duration = perf_counter() - start_time
+                scheduled = [json.loads(x) for x in scheduled_json]
                 self.total_ref_time += duration
                 if self.debug:
                     print(f"reference time: {duration:.6f}ms")

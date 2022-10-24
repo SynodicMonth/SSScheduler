@@ -27,6 +27,7 @@ class DemoScheduler(Scheduler):
         for i in range(self.driver_num):
             d = {"LogicalClock": logical_clock}
             d["DriverID"] = i
-            d["RequestList"] = [x["RequestID"] for x in random.choices(json.loads(request_list), k=4)]
-            arr.append(d)
-        return json.dumps(arr)
+            request = [json.loads(x) for x in request_list]
+            d["RequestList"] = [x["RequestID"] for x in random.choices(request, k=4)]
+            arr.append(json.dumps(d))
+        return arr
