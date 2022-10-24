@@ -16,9 +16,10 @@ class Runner:
         self.line = self.log_file.readline().strip()
         if not self.line:
             raise EOFError
-        self.scheduler = scheduler.DemoScheduler()
+        self.scheduler = scheduler.Scheduler()
         self.drivers: List[Dict] = []
         self.requests: List[Dict] = []
+        self.hour_reqs: List[Dict] = []
         self.clock = 0
         self.score = 0
         self.debug = debug
@@ -40,6 +41,7 @@ class Runner:
         if not self.line:
             raise EOFError
         self.drivers = []
+        self.hour_reqs = []
         while self.line and self.line[0] == 'd':
             self.drivers.append(eval(self.line[1:]))
             self.line = self.log_file.readline().strip()
@@ -47,8 +49,9 @@ class Runner:
             assert self.clock == int(self.line[1:9])
             new_req = eval(self.line[9:])
             new_req["Done"] = False
-            self.requests.append(new_req)
+            self.hour_reqs.append(new_req)
             self.line = self.log_file.readline().strip()
+        self.requests = self.requests + self.hour_reqs
         self.clock += 1
         return
     
@@ -63,7 +66,7 @@ class Runner:
                 self.read_tick()
                 if self.debug:
                     caps = [x["Capacity"] for x in self.drivers]
-                    print(f"CLK:{self.clock} CAP:{caps} REQ:{len(self.requests)}")
+                    print(f"CLK:{self.clock} CAP:{caps} NUM_REQ:{len(self.requests)}")
                 if not self.initialized:
                     start_time = perf_counter()
                     self.scheduler.init(len(self.drivers))
@@ -71,7 +74,7 @@ class Runner:
                     if self.debug:
                         print(f"initialize time: {duration:.6f}ms")
                     self.initialized = True
-                requests_json = [json.dumps(x) for x in self.requests]
+                requests_json = [json.dumps(x) for x in self.hour_reqs]
                 drivers_json = [json.dumps(x) for x in self.drivers]
                 start_time = perf_counter()
                 scheduled_json = self.scheduler.schedule(self.clock, requests_json, drivers_json)
@@ -85,6 +88,7 @@ class Runner:
                 for idx, assign in enumerate(scheduled):
                     capacity = self.drivers[idx]["Capacity"]
                     driver_id = assign["DriverID"]
+                    print(f'driver:{driver_id}, request:{assign["RequestList"]}')
                     for req in assign["RequestList"]:
                         req_driver = self.requests[req]["Driver"]
                         req_size = self.requests[req]["RequestSize"]
@@ -132,7 +136,7 @@ class Runner:
                     print(f"Total reference time:{self.total_ref_time:.6f}ms")
                 return self.score
 
-r = Runner("demo.log")
+r = Runner("demo2.log")
 score = r.judge()
 print(score)
         
