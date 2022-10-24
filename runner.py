@@ -4,6 +4,8 @@ import scheduler
 from math import ceil
 import json
 
+# worst score: -172600.5
+# now score: -609.0
 class Runner:
     def __init__(self, filename, debug=True) -> None:
         """init runner object

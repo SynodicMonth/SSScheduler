@@ -4,6 +4,7 @@ import time
 # from abc import ABCMeta, abstractmethod
 import json
 from typing import Dict, List
+import math
 
 URGENT = "URGENT"
 noURGENT = "noURGENT"
@@ -45,22 +46,22 @@ class Scheduler():
 
             minus_hours = -(request["now_sla"]-2)
             if request["RequestType"] == "FE":
-                return min(12, minus_hours) * request["RequestSize"] / 50
+                return min(12, minus_hours) * math.ceil(request["RequestSize"] / 50)
             elif request["RequestType"] == "BE":
-                return 0.5 * request["RequestSize"] / 50
+                return 0.5 * math.ceil(request["RequestSize"] / 50)
             else:
-                return 2 * min(12, minus_hours) * request["RequestSize"] / 50
+                return 2 *min(12, minus_hours) *  math.ceil(request["RequestSize"] / 50)
        
         else:
             if request["now_sla"] <= 1: # set type error
                 return 10000
             
             if request["RequestType"] == "FE":
-                return request["RequestSize"] / 50
+                return  math.ceil(request["RequestSize"] / 50)
             elif request["RequestType"] == "BE":
-                return 0.5 * request["RequestSize"] / 50
+                return  math.ceil(0.5 * request["RequestSize"] / 50)
             else:
-                return 2 * request["RequestSize"] / 50
+                return  math.ceil(2 * request["RequestSize"] / 50)
 
 
     def sort(self):
@@ -84,14 +85,18 @@ class Scheduler():
         # sort URGENT firstly, high score requests in the frontier
         for i in range(len(urg_requests)):
             for j in range(i+1, len(urg_requests)):
-                if urg_requests[i]["score"] < urg_requests[j]["score"]:
+                if urg_requests[i]["score"] < urg_requests[j]["score"] or \
+                  (urg_requests[i]["score"] == urg_requests[j]["score"] and \
+                    urg_requests[i]["RequestSize"] > urg_requests[j]["RequestSize"]):
                     tmp = urg_requests[i]
                     urg_requests[i] = urg_requests[j]
                     urg_requests[j] = tmp
         # sort noURGENT secondly
         for i in range(len(nourg_requests)):
             for j in range(i+1, len(nourg_requests)):
-                if nourg_requests[i]["score"] < nourg_requests[j]["score"]:
+                if nourg_requests[i]["score"] < nourg_requests[j]["score"] or \
+                  (nourg_requests[i]["score"] == nourg_requests[j]["score"] and \
+                    nourg_requests[i]["RequestSize"] > nourg_requests[j]["RequestSize"]):
                     tmp = nourg_requests[i]
                     nourg_requests[i] = nourg_requests[j]
                     nourg_requests[j] = tmp
