@@ -66,7 +66,7 @@ class Runner:
                 self.read_tick()
                 if self.debug:
                     caps = [x["Capacity"] for x in self.drivers]
-                    print(f"CLK:{self.clock} CAP:{caps} NUM_REQ:{len(self.requests)}")
+                    print(f"CLK:{self.clock} CAP:{caps} NUM_REQ:{len(self.hour_reqs)}")
                 if not self.initialized:
                     start_time = perf_counter()
                     self.scheduler.init(len(self.drivers))
