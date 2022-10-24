@@ -1,17 +1,18 @@
 import random
 import string
 import time
-from abc import ABCMeta, abstractmethod
+# from abc import ABCMeta, abstractmethod
 import json
+from typing import Dict, List
 
 URGENT = "URGENT"
 noURGENT = "noURGENT"
 
-class Scheduler(metaclass=ABCMeta):
+class Scheduler():
     def __init__(self) -> None:
-        self.requests = []
-        self.driver_status = []
-        self.remain_cap = []
+        self.requests: List[Dict] = []
+        self.driver_status: List[Dict] = []
+        self.remain_cap: List[int] = []
         self.driver_num = 0
         self.num_URGENT = 0
         self.num_noURGENT = 0
@@ -96,6 +97,9 @@ class Scheduler(metaclass=ABCMeta):
                     nourg_requests[j] = tmp
         
         self.requests = urg_requests + nourg_requests
+        # print(f'after sort, self.request:')
+        # for r in self.requests:
+        #     print(r)
     
     def wfac_algo(self, requests, driver_cap:list):
         """
@@ -119,8 +123,12 @@ class Scheduler(metaclass=ABCMeta):
             if driver != -1:
                 r["Driver"] = [driver]
                 results.append(r)
-                driver_cap[d] -= r["RequestSize"]
+                driver_cap[driver] = driver_cap[driver] - r["RequestSize"]
                 score += r["score"]
+        # print(f'wfac driver_cap:{driver_cap}')
+        # print('results:')
+        # for r in results:
+        #     print(r)
         return results, score, driver_cap
         
 
@@ -130,7 +138,26 @@ class Scheduler(metaclass=ABCMeta):
 
         return: schedule results, sum of score, remain capacity of drivers
         """
-        pass
+        # using the same code with function wfac_algo provisionally
+        assert len(driver_cap) == self.driver_num
+
+        results = []; score = 0
+        for r in requests:
+            # find if there are drivers can hold the request, 
+            # if true, select the driver with biggest capcity,
+            # set the request's "Driver" as [driver_id].
+            max_cap = 0
+            driver = -1
+            for d in r["Driver"]:
+                if driver_cap[d] > r["RequestSize"] and driver_cap[d] > max_cap:
+                    max_cap = driver_cap[d]
+                    driver = d
+            if driver != -1:
+                r["Driver"] = [driver]
+                results.append(r)
+                driver_cap[d] -= r["RequestSize"]
+                score += r["score"]
+        return results, score, driver_cap
     
     def type_schedule(self, type:string) -> list:
         """
@@ -208,11 +235,15 @@ class Scheduler(metaclass=ABCMeta):
             r["score"] = self.set_score(r)
         self.remain_cap = []
         for d in self.driver_status:
-            self.remain_cap.append(d["Capacity"]) 
+            self.remain_cap.append(d["Capacity"])
+        # print(f'self.remain_cap: {self.remain_cap}') 
 
         self.sort()
+        print("complete sorting")
         urg_commit_reqs = self.type_schedule(URGENT)
+        print("complete urg_commit_reqs")
         nourg_commit_reqs = self.type_schedule(noURGENT)
+        print("complete nourg_commit_reqs")
         
         commit_reqs = urg_commit_reqs + nourg_commit_reqs
         return self.excu_reqs(commit_reqs)
@@ -254,4 +285,4 @@ class Scheduler(metaclass=ABCMeta):
 # print(r)
 # print(d)
 # s = DemoScheduler()
-# s.schedule(0, r, d)
+# s.schedule(0, r, d) 
