@@ -1,6 +1,7 @@
 import random
 import time
 from abc import ABCMeta, abstractmethod
+import json
 
 
 class Scheduler(metaclass=ABCMeta):
@@ -18,14 +19,14 @@ class DemoScheduler(Scheduler):
         pass
 
     def init(self, driver_num: int):
-        # self.driver_num = driver_num
-        pass
+        self.driver_num = driver_num
+        # pass
 
     def schedule(self, logical_clock: int, request_list: list, driver_statues: list) -> list:
         arr = []
-        # for i in range(self.driver_num):
-        #     d = {"LogicalClock": logical_clock}
-        #     d["DriverID"] = i
-        #     d["RequestList"] = [x["RequestID"] for x in random.choices(request_list, k=4)]
-        #     arr.append(d)
-        return arr
+        for i in range(self.driver_num):
+            d = {"LogicalClock": logical_clock}
+            d["DriverID"] = i
+            d["RequestList"] = [x["RequestID"] for x in random.choices(json.loads(request_list), k=4)]
+            arr.append(d)
+        return json.dumps(arr)

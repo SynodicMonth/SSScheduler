@@ -1,7 +1,8 @@
-from time import time
+from time import perf_counter, time
 from typing import Dict, List
 import scheduler
 from math import ceil
+import json
 
 class Runner:
     def __init__(self, filename, debug=True) -> None:
@@ -22,6 +23,7 @@ class Runner:
         self.score = 0
         self.debug = debug
         self.initialized = False
+        self.total_ref_time = 0
     
     def __del__(self) -> None:
         """close file
@@ -63,14 +65,22 @@ class Runner:
                     caps = [x["Capacity"] for x in self.drivers]
                     print(f"CLK:{self.clock} CAP:{caps} REQ:{len(self.requests)}")
                 if not self.initialized:
+                    start_time = perf_counter()
                     self.scheduler.init(len(self.drivers))
+                    duration = perf_counter() - start_time
+                    if self.debug:
+                        print(f"initialize time: {duration:.6f}ms")
                     self.initialized = True
-                start_time = time()
-                scheduled = self.scheduler.schedule(self.clock, self.requests, self.drivers)
+                start_time = perf_counter()
+                scheduled = self.scheduler.schedule(self.clock, json.dumps(self.requests), json.dumps(self.drivers))
+                scheduled = json.loads(scheduled)
+                duration = perf_counter() - start_time
+                self.total_ref_time += duration
                 if self.debug:
-                    print(f"reference time: {time() - start_time:.6f}ms")
+                    print(f"reference time: {duration:.6f}ms")
+                if duration > 5000:
+                    raise TimeoutError
                 for idx, assign in enumerate(scheduled):
-                    assert assign['LogicalClock'] == self.clock
                     capacity = self.drivers[idx]["Capacity"]
                     driver_id = assign["DriverID"]
                     for req in assign["RequestList"]:
@@ -86,6 +96,7 @@ class Runner:
                         else:
                             if capacity >= req_size:
                                 self.requests[req]["Done"] = True
+                                capacity -= req_size
                                 if req_type == "FE":
                                     if self.clock - req_clock > req_sla:
                                         self.score -= min(12, self.clock - req_clock - req_sla) * ceil(req_size / 50)
@@ -116,6 +127,7 @@ class Runner:
                                     self.score -= 2 * min(12, self.clock - req_clock - req_sla) * ceil(req_size / 50)
                             else: # BE
                                 pass
+                    print(f"Total reference time:{self.total_ref_time:.6f}ms")
                 return self.score
 
 r = Runner("demo.log")
