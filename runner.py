@@ -136,7 +136,7 @@ class Runner:
                     print(f"Total reference time:{self.total_ref_time:.6f}ms")
                 return self.score
 
-r = Runner("demo2.log")
+r = Runner("demo.log")
 score = r.judge()
 print(score)
         
