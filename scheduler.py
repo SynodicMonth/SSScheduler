@@ -1,7 +1,7 @@
 import random
 import string
 import time
-# from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod
 import json
 from typing import Dict, List
 import math
@@ -9,8 +9,17 @@ import math
 URGENT = "URGENT"
 noURGENT = "noURGENT"
 
-class Scheduler():
-    def __init__(self) -> None:
+class Scheduler(metaclass=ABCMeta):
+    @abstractmethod
+    def init(self, driver_num: int) -> None:
+        pass
+
+    @abstractmethod
+    def schedule(self, logical_clock: int, request_list: list, driver_statues: list) -> list:
+        pass
+
+class DemoScheduler(Scheduler):
+    def __init__(self):
         self.requests: List[Dict] = []
         self.driver_status: List[Dict] = []
         self.remain_cap: List[int] = []

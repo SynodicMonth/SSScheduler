@@ -7,7 +7,7 @@ import json
 # worst score: -172600.5
 # now score: -609.0
 class Runner:
-    def __init__(self, filename, debug=True) -> None:
+    def __init__(self, filename, debug=True) -> None:  
         """init runner object
 
         Args:
@@ -18,7 +18,7 @@ class Runner:
         self.line = self.log_file.readline().strip()
         if not self.line:
             raise EOFError
-        self.scheduler = scheduler.Scheduler()
+        self.scheduler = scheduler.DemoScheduler()
         self.drivers: List[Dict] = []
         self.requests: List[Dict] = []
         self.hour_reqs: List[Dict] = []
