@@ -1,4 +1,4 @@
-from time import perf_counter, time
+from time import perf_counter
 from typing import Dict, List
 import scheduler
 from math import ceil
@@ -74,7 +74,7 @@ class Runner:
                     self.scheduler.init(len(self.drivers))
                     duration = perf_counter() - start_time
                     if self.debug:
-                        print(f"initialize time: {duration:.6f}ms")
+                        print(f"initialize time: {duration:.6f}s")
                     self.initialized = True
                 requests_json = [json.dumps(x) for x in self.hour_reqs]
                 drivers_json = [json.dumps(x) for x in self.drivers]
@@ -84,7 +84,7 @@ class Runner:
                 scheduled = [json.loads(x) for x in scheduled_json]
                 self.total_ref_time += duration
                 if self.debug:
-                    print(f"reference time: {duration:.6f}ms")
+                    print(f"reference time: {duration:.6f}s")
                 if duration > 5000:
                     raise TimeoutError
                 for idx, assign in enumerate(scheduled):
@@ -135,7 +135,8 @@ class Runner:
                                     self.score -= 2 * min(12, self.clock - req_clock - req_sla) * ceil(req_size / 50)
                             else: # BE
                                 pass
-                    print(f"Total reference time:{self.total_ref_time:.6f}ms")
+                    print(f"Total reference time:{self.total_ref_time:.6f}s")               
+                    print(f"Memory occupied every schedule(MB): {self.scheduler.memory}")
                 return self.score
 
 r = Runner("demo.log")

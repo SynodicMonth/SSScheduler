@@ -1,10 +1,11 @@
-import random
 import string
 import time
 from abc import ABCMeta, abstractmethod
 import json
 from typing import Dict, List
 import math
+from memory_profiler import profile, psutil
+import os
 
 URGENT = "URGENT"
 noURGENT = "noURGENT"
@@ -23,14 +24,20 @@ class DemoScheduler(Scheduler):
         self.requests: List[Dict] = []
         self.driver_status: List[Dict] = []
         self.remain_cap: List[int] = []
+        self.memory: List[int] = []
         self.driver_num = 0
         self.num_URGENT = 0
         self.num_noURGENT = 0
         self.logical_clock = 0
 
-    # @abstractmethod
     def init(self, driver_num: int) -> None:
         self.driver_num = driver_num
+
+    def get_memory(self) -> int:
+        """
+        get memory process has occupied
+        """
+        return psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
         
     def set_type(self, request) -> string:
         """
@@ -91,7 +98,7 @@ class DemoScheduler(Scheduler):
         self.num_URGENT = num_urg
         self.num_noURGENT = num_nourg
 
-        # sort URGENT firstly, high score requests in the frontier
+        # sort URGENT firstly, high score, small size requests are in the frontier
         for i in range(len(urg_requests)):
             for j in range(i+1, len(urg_requests)):
                 if urg_requests[i]["score"] < urg_requests[j]["score"] or \
@@ -190,6 +197,8 @@ class DemoScheduler(Scheduler):
         
         wfac_results, wfac_score, wfac_remain_cap = self.wfac_algo(requests, self.remain_cap)
         alns_results, alns_score, alns_remain_cap = self.alns_algo(requests, self.remain_cap)
+        self.memory.append(self.get_memory())
+        
         if wfac_score > alns_score:
             self.remain_cap = wfac_remain_cap
             results = wfac_results
@@ -224,13 +233,10 @@ class DemoScheduler(Scheduler):
             commit_results.append(driver_json)
         return commit_results
 
-    # @abstractmethod
     def schedule(self, logical_clock: int, request_list: list, driver_statues: list) -> list:
         """
-        add new keys ("now_sla", "type", "score") into request dict, 
-        you need to delete them before the request is commited. 
+        add new keys ("now_sla", "type", "score") into request dict
         """
-        
         for r in self.requests:
             r["now_sla"] -= 1
         
