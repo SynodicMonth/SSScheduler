@@ -60,6 +60,9 @@ class Runner:
     def judge(self) -> float:
         """score a scheduler
 
+        Raises:
+            TimeoutError: reference time excceds 5s within one tick
+
         Returns:
             float: score
         """
@@ -85,7 +88,7 @@ class Runner:
                 self.total_ref_time += duration
                 if self.debug:
                     print(f"reference time: {duration:.6f}s")
-                if duration > 5000:
+                if duration > 5:
                     raise TimeoutError
                 for idx, assign in enumerate(scheduled):
                     capacity = self.drivers[idx]["Capacity"]
