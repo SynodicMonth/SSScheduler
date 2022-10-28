@@ -11,6 +11,11 @@ from typing import Dict, List
 import math
 from memory_profiler import psutil
 
+# worst score: -172600.5
+# now score: -609.0
+# now score: -541.0
+# now score: -476.0
+
 URGENT = "URGENT"
 noURGENT = "noURGENT"
 ABANDON = "ABANDON"
