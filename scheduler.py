@@ -1,14 +1,17 @@
+import os
+import sys
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__)) # __file__如果不行，就改成'file'
+sys.path.append(os.path.dirname(SCRIPT_DIR))
 import string
-import time
 from abc import ABCMeta, abstractmethod
 import json
 from typing import Dict, List
 import math
-from memory_profiler import profile, psutil
-import os
+from memory_profiler import psutil
 
 URGENT = "URGENT"
 noURGENT = "noURGENT"
+ABANDON = "ABANDON"
 
 class Scheduler(metaclass=ABCMeta):
     @abstractmethod
@@ -45,10 +48,17 @@ class DemoScheduler(Scheduler):
 
         return: type
         """
-        if request["now_sla"] <= 1:
-            return URGENT
-        else:
-            return noURGENT 
+        if request["now_sla"] > 1 :
+            return noURGENT
+        elif request["now_sla"] <= 1 and request["now_sla"] >= -10:  
+            return URGENT 
+        else:   
+            # "FE" or "EM" >=-11 means req has over 12 hours, 
+            # req has get biggest deduction, we can abandon it immediately
+            if request["RequestType"] != "BE":
+                return ABANDON
+            else:
+                return URGENT
 
     def set_score(self, request) -> int:
         """
@@ -59,25 +69,23 @@ class DemoScheduler(Scheduler):
         if request["type"] == URGENT:
             if request["now_sla"] > 1: # set type error
                return 0
-
-            minus_hours = -(request["now_sla"]-2)
+            # minus_hours = -(request["now_sla"]-2)
             if request["RequestType"] == "FE":
-                return min(12, minus_hours) * math.ceil(request["RequestSize"] / 50)
+                return math.ceil(request["RequestSize"] / 50)
             elif request["RequestType"] == "BE":
                 return 0.5 * math.ceil(request["RequestSize"] / 50)
             else:
-                return 2 *min(12, minus_hours) *  math.ceil(request["RequestSize"] / 50)
+                return 2 *  math.ceil(request["RequestSize"] / 50)
        
         else:
             if request["now_sla"] <= 1: # set type error
                 return 10000
-            
             if request["RequestType"] == "FE":
                 return  math.ceil(request["RequestSize"] / 50)
             elif request["RequestType"] == "BE":
-                return  math.ceil(0.5 * request["RequestSize"] / 50)
+                return  0.5 * math.ceil(request["RequestSize"] / 50)
             else:
-                return  math.ceil(2 * request["RequestSize"] / 50)
+                return  2 * math.ceil(request["RequestSize"] / 50)
 
 
     def sort(self):
@@ -198,7 +206,7 @@ class DemoScheduler(Scheduler):
         wfac_results, wfac_score, wfac_remain_cap = self.wfac_algo(requests, self.remain_cap)
         alns_results, alns_score, alns_remain_cap = self.alns_algo(requests, self.remain_cap)
         self.memory.append(self.get_memory())
-        
+
         if wfac_score > alns_score:
             self.remain_cap = wfac_remain_cap
             results = wfac_results
@@ -250,15 +258,20 @@ class DemoScheduler(Scheduler):
         self.requests = self.requests + requests
         self.logical_clock = logical_clock
         
-        for r in self.requests:
-            r["type"] = self.set_type(r)
-            r["score"] = self.set_score(r)
+        for i in range(len(self.requests)-1, -1, -1):
+            self.requests[i]["type"] = self.set_type(self.requests[i])
+            if self.requests[i]["type"] == ABANDON:
+                self.requests.remove(self.requests[i])
+                continue
+            self.requests[i]["score"] = self.set_score(self.requests[i])
         self.remain_cap = []
         for d in self.driver_status:
             self.remain_cap.append(d["Capacity"])
         # print(f'self.remain_cap: {self.remain_cap}') 
 
         self.sort()
+        for r in self.requests:
+            print(r)
         print("complete sorting")
         urg_commit_reqs = self.type_schedule(URGENT)
         print("complete urg_commit_reqs")
