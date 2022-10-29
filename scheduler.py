@@ -59,6 +59,7 @@ class DemoScheduler(Scheduler):
         self.driver_num = 0
         self.num_URGENT = 0
         self.logical_clock = 0
+        self.score = 0
 
     def init(self, driver_num: int) -> None:
         self.driver_num = driver_num
@@ -69,10 +70,9 @@ class DemoScheduler(Scheduler):
         """
         return psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
         
-    def set_type(self, request) -> string:
+    def set_type(self, request:ReqStructure) -> string:
         """
         set request's type to URGENT or noURGENT
-
         return: type
         """
         if request.now_sla > 1 :
@@ -87,7 +87,7 @@ class DemoScheduler(Scheduler):
             else:
                 return URGENT
 
-    def set_score(self, request) -> int:
+    def set_score(self, request:ReqStructure) -> int:
         """
         computing score of the request
 
@@ -168,24 +168,24 @@ class DemoScheduler(Scheduler):
         score = 0
         results = requests
         driver_remain = driver_cap
-        for r in results:
+        for i in range(len(results)):
             # find if there are drivers can hold the request, 
             # if true, select the driver with biggest capcity,
             # set the request's "Driver" as [driver_id].
             max_cap = 0
             driver = -1
-            for d in r.Driver:
-                if driver_remain[d] > r.RequestSize and driver_remain[d] > max_cap:
+            for d in results[i].Driver:
+                if driver_remain[d] > results[i].RequestSize and driver_remain[d] > max_cap:
                     max_cap = driver_remain[d]
                     driver = d
             if driver != -1:
-                r.selected_driver = driver
-                driver_remain[driver] = driver_remain[driver] - r.RequestSize
-                score += r.score
+                results[i].selected_driver = driver
+                driver_remain[driver] = driver_remain[driver] - results[i].RequestSize
+                score += results[i].score
         # print(f'wfac driver_remain:{driver_remain}')
         # print('results:')
         # for r in results:
-        #     print(r)
+        #     print(r.selected_driver)
         return results, score, driver_remain
         
 
@@ -255,19 +255,13 @@ class DemoScheduler(Scheduler):
         # run all algoritym and get the best results
         assert len(self.remain_cap) == self.driver_num
 
-        
         requests = self.select_type(type)
-        
         wfac_results, wfac_score, wfac_remain_cap = self.wfac_algo(requests, self.remain_cap)
-        alns_results, alns_score, alns_remain_cap = self.alns_algo(requests, self.remain_cap)
+        self.remain_cap = wfac_remain_cap
+        self.set_type_reqs(wfac_results, type)
+        self.score = wfac_score
         self.memory.append(self.get_memory())
-
-        if wfac_score > alns_score:
-            self.remain_cap = wfac_remain_cap
-            self.set_type_reqs(wfac_results, type)
-        else:
-            self.remain_cap = alns_remain_cap
-            self.set_type_reqs(alns_results, type)
+        
 
 
     def excu_reqs(self) -> list:
@@ -348,41 +342,3 @@ class DemoScheduler(Scheduler):
 
         return excu
         
-        
-        
-
-# class DemoScheduler():
-#     def __init__(self):
-#         pass
-
-#     def init(self, driver_num: int):
-#         self.driver_num = driver_num
-#         pass
-
-#     def schedule(self, logical_clock: int, request_list: list, driver_statues: list) -> list:
-#         arr = []
-#         print(type(request_list[0]))
-#         print(type(driver_statues[0]))
-#         request_list = [json.loads(r) for r in request_list]
-#         driver_statues = [json.loads(r) for r in driver_statues]
-#         print(type(request_list[0]))
-#         print(type(driver_statues[0]))
-#         # for i in range(self.driver_num):
-#         #     d = {"LogicalClock": logical_clock}
-#         #     d.DriverID = i
-#         #     d["RequestList"] = [x.RequestID for x in random.choices(request_list, k=4)]
-#         #     arr.append(d)
-#         return arr
-
-# request = [{"RequestID": 0, "RequestType": "BE", "SLA": 12, "Driver": [1], "RequestSize": 111, "LogicalClock": 0},
-#         {"RequestID": 1, "RequestType": "FE", "SLA": 12, "Driver": [1], "RequestSize": 80, "LogicalClock": 0}]
-
-# driver = [{"DriverID": 0, "Capacity": 100, "LogicalClock": 0},
-#         {"DriverID": 1, "Capacity": 100, "LogicalClock": 0}]
-
-# r = [json.dumps(i) for i in request]
-# d = [json.dumps(i) for i in driver]
-# print(r)
-# print(d)
-# s = DemoScheduler()
-# s.schedule(0, r, d) 
