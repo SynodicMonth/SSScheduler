@@ -15,6 +15,7 @@ from memory_profiler import psutil
 # now score: -609.0
 # now score: -541.0
 # now score: -476.0
+# now score: 399.5
 
 URGENT = "URGENT"
 noURGENT = "noURGENT"
