@@ -167,8 +167,8 @@ class DemoScheduler(Scheduler):
         assert len(driver_cap) == self.driver_num
 
         score = 0
-        results = requests
-        driver_remain = driver_cap
+        results = requests[:]
+        driver_remain = driver_cap[:]
         for i in range(len(results)):
             # find if there are drivers can hold the request, 
             # if true, select the driver with biggest capcity,
@@ -183,7 +183,6 @@ class DemoScheduler(Scheduler):
                 results[i].selected_driver = driver
                 driver_remain[driver] = driver_remain[driver] - results[i].RequestSize
                 score += results[i].score
-        # print(f'wfac driver_remain:{driver_remain}')
         # print('results:')
         # for r in results:
         #     print(r.selected_driver)
@@ -199,10 +198,9 @@ class DemoScheduler(Scheduler):
         """
         # using the same code with function wfac_algo provisionally
         assert len(driver_cap) == self.driver_num
-
         score = 0
-        results = requests
-        driver_remain = driver_cap
+        results = requests[:]
+        driver_remain = driver_cap[:]
         for r in results:
             # find if there are drivers can hold the request, 
             # if true, select the driver with biggest capcity,
@@ -217,7 +215,6 @@ class DemoScheduler(Scheduler):
                 r.selected_driver = driver
                 driver_remain[driver] = driver_remain[driver] - r.RequestSize
                 score += r.score
-        # print(f'wfac driver_remain:{driver_remain}')
         # print('results:')
         # for r in results:
         #     print(r)
@@ -258,9 +255,18 @@ class DemoScheduler(Scheduler):
 
         requests = self.select_type(type)
         wfac_results, wfac_score, wfac_remain_cap = self.wfac_algo(requests, self.remain_cap)
-        self.remain_cap = wfac_remain_cap
-        self.set_type_reqs(wfac_results, type)
-        self.score = wfac_score
+        alns_results, alns_score, alns_remain_cap = self.alns_algo(requests, self.remain_cap)
+        self.memory.append(self.get_memory())
+        
+        if wfac_score > alns_score:
+            self.remain_cap = wfac_remain_cap
+            self.set_type_reqs(wfac_results, type)
+            self.score = wfac_score
+        else:
+            self.remain_cap = alns_remain_cap
+            self.set_type_reqs(alns_results, type)
+            self.score = alns_score
+
         self.memory.append(self.get_memory())
         
 
