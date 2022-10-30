@@ -11,6 +11,7 @@ from typing import List
 import math
 from memory_profiler import psutil
 import copy
+from alns import alns
 
 # worst score: -172600.5
 # now score: -609.0
@@ -57,6 +58,7 @@ class DemoScheduler(Scheduler):
         self.requests: List[ReqStructure] = []
         self.driver_status: List[DriverStructure] = []
         self.remain_cap: List[int] = []
+        self.real_cap: List[int] = []
         self.memory: List[int] = []
         self.driver_num = 0
         self.num_URGENT = 0
@@ -189,37 +191,6 @@ class DemoScheduler(Scheduler):
         #     print(r.selected_driver)
         return results, score, driver_remain
         
-
-    def alns_algo(self, requests:List[ReqStructure], driver_cap:list):
-        """
-        alns algorithm, num of iterator is decided by remain time, at most 2s
-
-        return: results(set the selected_driver of all self.requests), 
-                sum of score, remain capacity of drivers
-        """
-        # using the same code with function wfac_algo provisionally
-        assert len(driver_cap) == self.driver_num
-        score = 0
-        results = copy.deepcopy(requests)
-        driver_remain = copy.deepcopy(driver_cap)
-        for r in results:
-            # find if there are drivers can hold the request, 
-            # if true, select the driver with biggest capcity,
-            # set the request's "Driver" as [driver_id].
-            max_cap = 0
-            driver = -1
-            for d in r.Driver:
-                if driver_remain[d] > r.RequestSize and driver_remain[d] > max_cap:
-                    max_cap = driver_remain[d]
-                    driver = d
-            if driver != -1:
-                r.selected_driver = driver
-                driver_remain[driver] = driver_remain[driver] - r.RequestSize
-                score += r.score
-        # print('results:')
-        # for r in results:
-        #     print(r)
-        return results, score, driver_remain
     
     def select_type(self, type:string) -> list:
         """
@@ -256,7 +227,9 @@ class DemoScheduler(Scheduler):
 
         requests = self.select_type(type)
         wfac_results, wfac_score, wfac_remain_cap = self.wfac_algo(requests, self.remain_cap)
-        alns_results, alns_score, alns_remain_cap = self.alns_algo(requests, self.remain_cap)
+        alns_al = alns(ini_requests=wfac_results, remain_cap=wfac_remain_cap, ini_score=wfac_score, \
+            max_iteraion=500, max_runtime=2, real_cap=self.real_cap)
+        alns_results, alns_score, alns_remain_cap = alns_al.iteration_alns()
         self.memory.append(self.get_memory())
         
         if wfac_score > alns_score:
@@ -267,10 +240,7 @@ class DemoScheduler(Scheduler):
             self.remain_cap = alns_remain_cap
             self.set_type_reqs(alns_results, type)
             self.score = alns_score
-
-        self.memory.append(self.get_memory())
         
-
 
     def excu_reqs(self) -> list:
         """
@@ -330,6 +300,7 @@ class DemoScheduler(Scheduler):
             self.requests[i].selected_driver = -1
         
         self.remain_cap = [d.Capacity for d in self.driver_status]
+        self.real_cap = self.remain_cap
         # print(f'self.remain_cap: {self.remain_cap}') 
 
         self.sort()
