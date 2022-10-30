@@ -6,6 +6,7 @@ Smart Storage Scheduler for 2022 Massive Storage Competition
 ![](./images/algorithm.png)
 
 ## alns:
+<font color=#ff0000>score: 399.5 -> 490.0</font>
 ![](./images/alns.png)
 
 - BPR算子：随机选择一个driver，选择其中一个request（根据它的requests的size来设置概率，size越大的被选择概率越大），将该request移除，从等待队列里面重新选择request放入该driver中。
