@@ -19,6 +19,7 @@ from alns import alns
 # now score: -476.0
 # now score: 399.5
 # now score: 475.5
+# now score: 485.5, 496.0, 487.5
 
 URGENT = "URGENT"
 noURGENT = "noURGENT"
@@ -65,6 +66,14 @@ class DemoScheduler(Scheduler):
         self.num_URGENT = 0
         self.logical_clock = 0
         self.score = 0
+
+        # parameters
+        self.max_iteration = 1000 
+        self.max_runtime = 2
+        self.start_temp = 1000 # 100
+        self.end_temp = 10  # 10
+        self.temp_step = 0.99 # 0.997
+        self.temp_s1 = 120     # 10 # ajust to bigger, acception prob will be smaller
 
     def init(self, driver_num: int) -> None:
         self.driver_num = driver_num
@@ -234,7 +243,8 @@ class DemoScheduler(Scheduler):
             real_cap = self.remain_cap
         try:
             alns_al = alns(ini_requests=wfac_results, remain_cap=wfac_remain_cap, ini_score=wfac_score, \
-                max_iteraion=2000, max_runtime=2, real_cap=real_cap)
+                    max_iteraion=self.max_iteration, max_runtime=self.max_runtime, real_cap=real_cap, \
+                    start_temp=self.start_temp, end_temp=self.end_temp, temp_step=self.temp_step, temp_s1=self.temp_s1)
             alns_results, alns_score, alns_remain_cap = alns_al.iteration_alns()
             # raise AttributeError(f'only wfac')
         except:

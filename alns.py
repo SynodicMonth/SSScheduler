@@ -3,6 +3,7 @@ import random
 import copy
 from time import perf_counter
 import string
+from math import exp
 
 class ReqStructure():
     def __init__(self) -> None:
@@ -41,7 +42,8 @@ class OperReq():
 
 class alns():
     def __init__(self, ini_requests:List[ReqStructure], remain_cap:List[int], 
-    ini_score:float, max_iteraion:int, max_runtime:int, real_cap:List[int]) -> None:
+    ini_score:float, max_iteraion:int, max_runtime:int, real_cap:List[int], 
+    start_temp:float, end_temp:float, temp_step:float, temp_s1:float) -> None:
         """
         ini_requests: requests dealed with wfac-bin-packing
         remain_cap: driver remain capacity after wfac-bin-packing
@@ -57,6 +59,12 @@ class alns():
         self.oper_prob: List[float] = [1 / self.num_oper] * self.num_oper
         self.iteraion = 0
         self.runtime = 0
+
+        self.start_temp = start_temp
+        self.end_temp = end_temp
+        self.temp = self.start_temp
+        self.step = temp_step
+        self.s1 = temp_s1    # ajust to bigger, acception prob will be smaller
 
         self.best_score = copy.deepcopy(ini_score)    # score of best solution
         self.score = copy.deepcopy(ini_score)         # score of previous solution
@@ -82,18 +90,22 @@ class alns():
                 self.down_reqs = cand_down_reqs
                 self.remain_cap = cand_remain_cap
                 self.score = cand_score
-                self.OperReq2ReqStrut(cand_up_reqs=cand_up_reqs, cand_down_reqs=cand_down_reqs)
-                self.best_reqs = self.requests
-                self.best_score = self.score
-                self.best_remain_cap = self.remain_cap
-                self.update_weight_prob(oper_id=oper_id)
+                self.OperReq2ReqStrut(cand_up_reqs=cand_up_reqs, cand_down_reqs=cand_down_reqs) # update self.requests
+                self.update_weight_prob(oper_id=oper_id, step=1)
+            if cand_score > self.best_score:
+                self.best_reqs = copy.deepcopy(self.requests)
+                self.best_score = copy.deepcopy(self.score)
+                self.best_remain_cap = copy.deepcopy(self.remain_cap)
+                self.update_weight_prob(oper_id=oper_id, step=5)
+
             self.iteraion += 1
             self.runtime = perf_counter() - start_time
+            self.temp = max(self.end_temp, self.temp * self.step)
         return self.best_reqs, self.best_score, self.best_remain_cap
             
     
-    def update_weight_prob(self, oper_id:int):
-        self.oper_weight[oper_id] += 1
+    def update_weight_prob(self, oper_id:int, step:int):
+        self.oper_weight[oper_id] += step
         s = sum(self.oper_weight)
         self.oper_prob = [float(w / s) for w in self.oper_weight]
 
@@ -167,7 +179,12 @@ class alns():
 
         return: true means the solution is accepted.
         """
-        return score >= self.score
+        if score >= self.score:
+            return True
+        else:
+            d_score = score - self.score
+            p = exp((d_score / self.temp) * self.s1)
+            return random.random() <= p 
 
     def is_stop(self):
         """
@@ -299,6 +316,10 @@ class alns():
         cand_down_reqs, cand_up_reqs[driver_id], cand_remain_cap[driver_id], cand_score = \
             self.down_remove_req(cand_down_reqs, cand_up_reqs[driver_id], driver_id, cand_remain_cap[driver_id], cand_score)
 
+        for c in cand_remain_cap:
+            if c < 0:
+                raise AttributeError(f'oper_0: {cand_remain_cap}')
+
         return cand_up_reqs, cand_down_reqs, cand_remain_cap, cand_score
         
 
@@ -404,6 +425,10 @@ class alns():
         for i in range(len(cand_down_reqs)-1, -1, -1):
             if cand_down_reqs[i].selected_driver != -1:
                 cand_down_reqs.remove(cand_down_reqs[i])
+        
+        for c in cand_remain_cap:
+            if c < 0:
+                raise AttributeError(f'oper_2: {cand_remain_cap}')
 
         return cand_up_reqs, cand_down_reqs, cand_remain_cap, cand_score
 
