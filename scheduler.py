@@ -7,9 +7,10 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 import string
 from abc import ABCMeta, abstractmethod
 import json
-from typing import Dict, List
+from typing import List
 import math
 from memory_profiler import psutil
+import copy
 
 # worst score: -172600.5
 # now score: -609.0
@@ -123,8 +124,8 @@ class DemoScheduler(Scheduler):
         """
         # divide requests list into two lists by type
         num_urg = 0
-        urg_requests = []
-        nourg_requests = []
+        urg_requests: List[ReqStructure] = []
+        nourg_requests: List[ReqStructure] = []
         for r in self.requests:
             if r.type == URGENT:
                 urg_requests.append(r)
@@ -167,8 +168,8 @@ class DemoScheduler(Scheduler):
         assert len(driver_cap) == self.driver_num
 
         score = 0
-        results = requests[:]
-        driver_remain = driver_cap[:]
+        results = copy.deepcopy(requests)
+        driver_remain = copy.deepcopy(driver_cap)
         for i in range(len(results)):
             # find if there are drivers can hold the request, 
             # if true, select the driver with biggest capcity,
@@ -199,8 +200,8 @@ class DemoScheduler(Scheduler):
         # using the same code with function wfac_algo provisionally
         assert len(driver_cap) == self.driver_num
         score = 0
-        results = requests[:]
-        driver_remain = driver_cap[:]
+        results = copy.deepcopy(requests)
+        driver_remain = copy.deepcopy(driver_cap)
         for r in results:
             # find if there are drivers can hold the request, 
             # if true, select the driver with biggest capcity,
