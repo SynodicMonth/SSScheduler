@@ -15,7 +15,7 @@ class ReqStructure():
         # parameters define by ourselves
         self.now_sla: int
         self.type: string
-        self.score: int
+        self.score: float
         self.selected_driver: int
 
 # 尚不确定是否需要state
@@ -35,13 +35,13 @@ class OperReq():
     def __init__(self) -> None:
         self.Driver: List[int]
         self.RequestSize: int
-        self.score: int
+        self.score: float
         self.id: int
         self.selected_driver: int
 
 class alns():
     def __init__(self, ini_requests:List[ReqStructure], remain_cap:List[int], 
-    ini_score:int, max_iteraion:int, max_runtime:int, real_cap:List[int]) -> None:
+    ini_score:float, max_iteraion:int, max_runtime:int, real_cap:List[int]) -> None:
         """
         ini_requests: requests dealed with wfac-bin-packing
         remain_cap: driver remain capacity after wfac-bin-packing
@@ -58,14 +58,14 @@ class alns():
         self.iteraion = 0
         self.runtime = 0
 
-        self.best_score = ini_score    # score of best solution
-        self.score = ini_score         # score of previous solution
-        self.best_reqs = ini_requests
-        self.requests = ini_requests    # reqs of previous solution, can't change its sequence, only change its selected_driver
-        self.best_remain_cap = remain_cap
-        self.remain_cap = remain_cap
-        self.best_state = self.reqs2state(ini_requests)
-        self.state = self.best_state    # state of previous solution
+        self.best_score = copy.deepcopy(ini_score)    # score of best solution
+        self.score = copy.deepcopy(ini_score)         # score of previous solution
+        self.best_reqs = copy.deepcopy(ini_requests)
+        self.requests = copy.deepcopy(ini_requests)    # reqs of previous solution, can't change its sequence, only change its selected_driver
+        self.best_remain_cap = copy.deepcopy(remain_cap)
+        self.remain_cap = copy.deepcopy(remain_cap)
+        self.best_state = copy.deepcopy(self.reqs2state(ini_requests))
+        self.state = copy.deepcopy(self.best_state)    # state of previous solution
 
         self.up_reqs: List[List[OperReq]] = []   # reqs on each driver, only use it in operations
         self.down_reqs: List[OperReq] = [] # reqs waiting, only use it in operations, sort from big to small according to their score
@@ -109,9 +109,10 @@ class alns():
             s += prob[i]
             if s >= p:
                 return i
+        return 0
 
     def ini_on_down_req(self):
-        for d in range(len(self.remain_cap)):
+        for _ in range(len(self.remain_cap)):
             self.up_reqs.append([])
         for i in range(len(self.requests)):
             r = self.requests[i]
@@ -159,14 +160,14 @@ class alns():
             s.solu_score += r.score
         return s
 
-    def is_accepted(self, score:int) -> bool:
+    def is_accepted(self, score:float) -> bool:
         """
         judging whether the candidate solution is need to be accepted,
         we use hill climbing in there.
 
         return: true means the solution is accepted.
         """
-        return score >= self.pre_score
+        return score >= self.score
 
     def is_stop(self):
         """
@@ -185,10 +186,12 @@ class alns():
 
         return: req_id in reqs list
         """
-        reqs_list = driver_up_reqs[:]
-        sum_size = sum([r.RequestSize for r in reqs_list])
-        prob = [r.RequestSize / sum_size for r in reqs_list]
-        return self.choose_prob(prob=prob)
+        try:
+            sum_size = sum([r.RequestSize for r in driver_up_reqs])
+            prob = [float(r.RequestSize / sum_size) for r in driver_up_reqs]
+            return self.choose_prob(prob=prob)
+        except:
+            return 0
 
     def move_to_other(self, req:OperReq, driver_id:int) -> bool:
         """
@@ -202,27 +205,31 @@ class alns():
                 return True
         return False
 
-    def up_add_req(self, driver_cand_up_reqs:List[OperReq], req:OperReq, driver_id:int, driver_cap:int, score:int):
+    def up_add_req(self, driver_cand_up_reqs:List[OperReq], req:OperReq, driver_id:int, driver_cap:int, score:float):
         """
         add new req to a driver's up_reqs list, and update parameters
 
-        return: driver_cand_up_reqs: List[OperReq], driver_cap: int, score: int
+        return: driver_cand_up_reqs: List[OperReq], driver_cap: int, score: float
         """
         req.selected_driver = driver_id
         driver_cand_up_reqs.append(req)
         driver_cap -= req.RequestSize
         score += req.score
+        # if driver_cap < 0:
+        #     raise AttributeError(f'up_add_req: {driver_cap}')
         return driver_cand_up_reqs, driver_cap, score
 
-    def up_remove_req(self, driver_cand_up_reqs:List[OperReq], req:OperReq, driver_cap:int, score:int):
+    def up_remove_req(self, driver_cand_up_reqs:List[OperReq], req:OperReq, driver_cap:int, score:float):
         """
         remove a req from a driver's up_reqs list, and update parameters
 
-        return: driver_cand_up_reqs: List[OperReq], driver_cap: int, score: int
+        return: driver_cand_up_reqs: List[OperReq], driver_cap: int, score: float
         """
         driver_cand_up_reqs.remove(req)
         driver_cap += req.RequestSize
         score -= req.score
+        # if driver_cap < 0:
+        #     raise AttributeError(f'up_remove_req: {driver_cap}')
         return driver_cand_up_reqs, driver_cap, score
 
     def down_add_req(self, cand_down_reqs:List[OperReq], req:OperReq):
@@ -258,7 +265,8 @@ class alns():
         for i in range(len(cand_down_reqs)-1, -1, -1):
             if cand_down_reqs[i].selected_driver != -1:
                 cand_down_reqs.remove(cand_down_reqs[i])
-
+        # if driver_cap < 0:
+        #     raise AttributeError(f'down_remove_req: {driver_cap}')
         return cand_down_reqs, driver_cand_up_reqs, driver_cap, cand_score
 
     def operation_0(self):
@@ -267,7 +275,7 @@ class alns():
         for one driver, put a big size req down, try to put waiting reqs to this driver
 
         return: candidate driver_reqs: List[List[req]], candidate down_reqs: List[req], 
-                candidate driver_remain_cap: List[int], candidate score: int
+                candidate driver_remain_cap: List[int], candidate score: float
         """
         # create candidate solution 
         cand_up_reqs = copy.deepcopy(self.up_reqs)
@@ -276,6 +284,9 @@ class alns():
         cand_score = copy.deepcopy(self.score)
 
         driver_id = random.randint(0, self.num_driver-1)
+        if cand_up_reqs[driver_id] == []: # if the driver has not any reqs match condition. return immediately
+            return [], [], [], -100
+
         req_id = self.prob_ger_req(cand_up_reqs[driver_id])
         req = cand_up_reqs[driver_id][req_id] # don't forget insert req into down_reqs in order
         
@@ -287,7 +298,6 @@ class alns():
         # down_reqs move req to driver
         cand_down_reqs, cand_up_reqs[driver_id], cand_remain_cap[driver_id], cand_score = \
             self.down_remove_req(cand_down_reqs, cand_up_reqs[driver_id], driver_id, cand_remain_cap[driver_id], cand_score)
-        
 
         return cand_up_reqs, cand_down_reqs, cand_remain_cap, cand_score
         
@@ -300,7 +310,7 @@ class alns():
         after that, try to put waiting reqs to two drivers.
 
         return: candidate driver_reqs: List[List[req]], candidate down_reqs: List[req], 
-                candidate driver_remain_cap: List[int], candidate score: int
+                candidate driver_remain_cap: List[int], candidate score: float
         """
         # create candidate solution 
         cand_up_reqs = copy.deepcopy(self.up_reqs)
@@ -313,16 +323,30 @@ class alns():
         max_req_list: List[OperReq] = []
         for i in range(len(cand_up_reqs[driver_id])):
             r = cand_up_reqs[driver_id][i]
-            if len(r.selected_driver) > 1 and self.move_to_other(r, driver_id):
+            if len(r.Driver) > 1 and self.move_to_other(r, driver_id):
                 max_req_list.append(r)
+        if max_req_list == []:  # if the driver has not any reqs match condition. return immediately
+            return [], [], [], -100
+
         max_req_id = self.prob_ger_req(max_req_list)
         max_req = max_req_list[max_req_id]
         cand_up_reqs[driver_id], cand_remain_cap[driver_id], cand_score = \
             self.up_remove_req(cand_up_reqs[driver_id], max_req, cand_remain_cap[driver_id], cand_score)
 
         # find the driver max_req moved to
-        max_req_driverlist = max_req.Driver.remove(driver_id)
-        to_driver_id = random.choice(max_req_driverlist)
+        max_req_driverlist = copy.deepcopy(max_req.Driver)
+        max_req_driverlist.remove(driver_id)
+        if len(max_req_driverlist) > 1:
+            for i in range(len(max_req_driverlist)-1, -1, -1):
+                d = max_req_driverlist[i]
+                if self.real_cap[d] < max_req.RequestSize:
+                    max_req_driverlist.remove(d)
+            to_driver_id = random.choice(max_req_driverlist)
+        else:
+            to_driver_id = max_req_driverlist[0]
+        if self.real_cap[to_driver_id] < max_req.RequestSize:
+            raise AttributeError('self.real_cap[to_driver_id] < max_req.RequestSize')
+        
         cand_up_reqs[to_driver_id], cand_remain_cap[to_driver_id], cand_score = \
             self.up_add_req(cand_up_reqs[to_driver_id], max_req, to_driver_id, cand_remain_cap[to_driver_id], cand_score)
         
@@ -361,7 +385,9 @@ class alns():
                 removed_r.append(r)
             for r in removed_r:
                 cand_down_reqs = self.down_add_req(cand_down_reqs, r)
-        
+        if cand_remain_cap[to_driver_id] < 0:
+            raise AttributeError(f'{cand_remain_cap}, num_req:{len(cand_up_reqs[to_driver_id])}')
+
         # move reqs from down to up
         for i in range(len(cand_down_reqs)):
             max_cap = -100
@@ -378,7 +404,7 @@ class alns():
         for i in range(len(cand_down_reqs)-1, -1, -1):
             if cand_down_reqs[i].selected_driver != -1:
                 cand_down_reqs.remove(cand_down_reqs[i])
-        
+
         return cand_up_reqs, cand_down_reqs, cand_remain_cap, cand_score
 
 

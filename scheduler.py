@@ -18,6 +18,7 @@ from alns import alns
 # now score: -541.0
 # now score: -476.0
 # now score: 399.5
+# now score: 475.5
 
 URGENT = "URGENT"
 noURGENT = "noURGENT"
@@ -43,7 +44,7 @@ class ReqStructure():
         # parameters define by ourselves
         self.now_sla: int
         self.type: string
-        self.score: int
+        self.score: float
         self.selected_driver: int
 
 class DriverStructure():
@@ -159,7 +160,30 @@ class DemoScheduler(Scheduler):
         # print(f'after sort, self.request:')
         # for r in self.requests:
         #     print(r)
-    
+
+    def select_type(self, type:string) -> list:
+        """
+        get one type of requests from the self.requests
+
+        return: list of reqs belong to the type
+        """
+        if type == URGENT:
+            return self.requests[:self.num_URGENT]
+        else:
+            return self.requests[self.num_URGENT:]
+
+    def set_type_reqs(self, results:list, type:string):
+        """
+        after the results is certain, 
+        set one type of requests' selected_driver from the self.requests
+        """
+        reqs_len = len(self.requests)
+        if type == URGENT:
+            self.requests[:self.num_URGENT] = results
+        else:
+            self.requests[self.num_URGENT:] = results
+        assert len(self.requests) == reqs_len
+
     def wfac_algo(self, requests:List[ReqStructure], driver_cap:list):
         """
         wfac bin-packing algorithm
@@ -190,30 +214,6 @@ class DemoScheduler(Scheduler):
         # for r in results:
         #     print(r.selected_driver)
         return results, score, driver_remain
-        
-    
-    def select_type(self, type:string) -> list:
-        """
-        get one type of requests from the self.requests
-
-        return: list of reqs belong to the type
-        """
-        if type == URGENT:
-            return self.requests[:self.num_URGENT]
-        else:
-            return self.requests[self.num_URGENT:]
-
-    def set_type_reqs(self, results:list, type:string):
-        """
-        after the results is certain, 
-        set one type of requests' selected_driver from the self.requests
-        """
-        reqs_len = len(self.requests)
-        if type == URGENT:
-            self.requests[:self.num_URGENT] = results
-        else:
-            self.requests[self.num_URGENT:] = results
-        assert len(self.requests) == reqs_len
 
     def type_schedule(self, type:string):
         """
@@ -227,12 +227,26 @@ class DemoScheduler(Scheduler):
 
         requests = self.select_type(type)
         wfac_results, wfac_score, wfac_remain_cap = self.wfac_algo(requests, self.remain_cap)
-        alns_al = alns(ini_requests=wfac_results, remain_cap=wfac_remain_cap, ini_score=wfac_score, \
-            max_iteraion=500, max_runtime=2, real_cap=self.real_cap)
-        alns_results, alns_score, alns_remain_cap = alns_al.iteration_alns()
-        self.memory.append(self.get_memory())
+
+        if type == URGENT:
+            real_cap = self.real_cap
+        else:
+            real_cap = self.remain_cap
+        try:
+            alns_al = alns(ini_requests=wfac_results, remain_cap=wfac_remain_cap, ini_score=wfac_score, \
+                max_iteraion=2000, max_runtime=2, real_cap=real_cap)
+            alns_results, alns_score, alns_remain_cap = alns_al.iteration_alns()
+            # raise AttributeError(f'only wfac')
+        except:
+            self.remain_cap = wfac_remain_cap
+            self.set_type_reqs(wfac_results, type)
+            self.score = wfac_score
+            return
         
-        if wfac_score > alns_score:
+        self.memory.append(self.get_memory())
+        print(f'wfac_score:{wfac_score}')
+        print(f'alns_score:{alns_score}')
+        if wfac_score >= alns_score:
             self.remain_cap = wfac_remain_cap
             self.set_type_reqs(wfac_results, type)
             self.score = wfac_score
