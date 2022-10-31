@@ -3,7 +3,7 @@ import random
 import copy
 from time import perf_counter
 import string
-from math import exp
+from math import exp, floor
 
 class ReqStructure():
     def __init__(self) -> None:
@@ -196,7 +196,7 @@ class alns():
             return True
 
     
-    def prob_ger_req(self, driver_up_reqs:List[OperReq]) -> int:
+    def prob_ger_req(self, req_id_list:List[int], driver_reqs:List[OperReq]) -> int:
         """
         compute each req's probability be chosen in the list, according to their RequestSize, 
         and then get a req through the probability list.
@@ -204,11 +204,11 @@ class alns():
         return: req_id in reqs list
         """
         try:
-            sum_size = sum([r.RequestSize for r in driver_up_reqs])
-            prob = [float(r.RequestSize / sum_size) for r in driver_up_reqs]
-            return self.choose_prob(prob=prob)
+            sum_size = sum([driver_reqs[i].RequestSize for i in req_id_list])
+            prob = [float(driver_reqs[i].RequestSize / sum_size) for i in req_id_list]
+            return req_id_list[self.choose_prob(prob=prob)]
         except:
-            return 0
+            return req_id_list[0]
 
     def move_to_other(self, req:OperReq, driver_id:int) -> bool:
         """
@@ -301,20 +301,31 @@ class alns():
         cand_score = copy.deepcopy(self.score)
 
         driver_id = random.randint(0, self.num_driver-1)
-        if cand_up_reqs[driver_id] == []: # if the driver has not any reqs match condition. return immediately
-            return [], [], [], -100
 
-        req_id = self.prob_ger_req(cand_up_reqs[driver_id])
-        req = cand_up_reqs[driver_id][req_id] # don't forget insert req into down_reqs in order
+        if len(cand_up_reqs[driver_id]) > 1:
+            num_deal_req = max(1, random.choice([1, floor(0.25 * len(cand_up_reqs[driver_id])), floor(0.5 * len(cand_up_reqs[driver_id]))]))
+        elif len(cand_up_reqs[driver_id]) == 1:
+            num_deal_req = 1
+        else:
+            return [], [], [], -100 # if the driver has not any reqs match condition. return immediately
         
-        # driver remove req
-        cand_up_reqs[driver_id], cand_remain_cap[driver_id], cand_score = \
-            self.up_remove_req(cand_up_reqs[driver_id], req, cand_remain_cap[driver_id], cand_score)
-        # insert req into down_reqs in order
-        cand_down_reqs = self.down_add_req(cand_down_reqs, req)
+        req_id_list: List[int] = list(range(len(cand_up_reqs[driver_id])))
+        req_list: List[OperReq] = []
+        for _ in range(num_deal_req):
+            req_id = self.prob_ger_req(req_id_list, cand_up_reqs[driver_id])
+            req = cand_up_reqs[driver_id][req_id]
+            req_list.append(req)
+            req_id_list.remove(req_id)
+        
+        for req in req_list:
+            cand_up_reqs[driver_id], cand_remain_cap[driver_id], cand_score = \
+                self.up_remove_req(cand_up_reqs[driver_id], req, cand_remain_cap[driver_id], cand_score)
         # down_reqs move req to driver
         cand_down_reqs, cand_up_reqs[driver_id], cand_remain_cap[driver_id], cand_score = \
             self.down_remove_req(cand_down_reqs, cand_up_reqs[driver_id], driver_id, cand_remain_cap[driver_id], cand_score)
+        # insert req into down_reqs in order
+        for req in req_list:
+            cand_down_reqs = self.down_add_req(cand_down_reqs, req)
 
         for c in cand_remain_cap:
             if c < 0:
@@ -349,65 +360,77 @@ class alns():
         if max_req_list == []:  # if the driver has not any reqs match condition. return immediately
             return [], [], [], -100
 
-        max_req_id = self.prob_ger_req(max_req_list)
-        max_req = max_req_list[max_req_id]
-        cand_up_reqs[driver_id], cand_remain_cap[driver_id], cand_score = \
-            self.up_remove_req(cand_up_reqs[driver_id], max_req, cand_remain_cap[driver_id], cand_score)
-
-        # find the driver max_req moved to
-        max_req_driverlist = copy.deepcopy(max_req.Driver)
-        max_req_driverlist.remove(driver_id)
-        if len(max_req_driverlist) > 1:
-            for i in range(len(max_req_driverlist)-1, -1, -1):
-                d = max_req_driverlist[i]
-                if self.real_cap[d] < max_req.RequestSize:
-                    max_req_driverlist.remove(d)
-            to_driver_id = random.choice(max_req_driverlist)
+        if len(max_req_list) > 1:
+            num_deal_req = max(1, random.choice([1, floor(0.25 * len(max_req_list)), floor(0.5 * len(max_req_list))]))
         else:
-            to_driver_id = max_req_driverlist[0]
-        if self.real_cap[to_driver_id] < max_req.RequestSize:
-            raise AttributeError('self.real_cap[to_driver_id] < max_req.RequestSize')
+            num_deal_req = 1
         
-        cand_up_reqs[to_driver_id], cand_remain_cap[to_driver_id], cand_score = \
-            self.up_add_req(cand_up_reqs[to_driver_id], max_req, to_driver_id, cand_remain_cap[to_driver_id], cand_score)
-        
-        # if to_driver_id's capacity is too less, try to move some reqs to other drivers
-        if cand_remain_cap[to_driver_id] < 0:
-            for i in range(len(cand_up_reqs[to_driver_id])-1, -1, -1):
-                if cand_remain_cap[to_driver_id] >= 0:
-                    break
+        req_id_list: List[int] = list(range(len(max_req_list)))
+        req_list: List[OperReq] = []
+        for _ in range(num_deal_req):
+            req_id = self.prob_ger_req(req_id_list, max_req_list)
+            req = max_req_list[req_id]
+            req_list.append(req)
+            req_id_list.remove(req_id)
 
-                r = cand_up_reqs[to_driver_id][i]
-                if r.id == max_req.id:
-                    continue
+        removed_r: List[OperReq] = [] # collet reqs be removed by to_driver_id
+        # move chosen reqs from driver_id to to_driver_ids 
+        for max_req in req_list:
+            # driver id remove max_req
+            cand_up_reqs[driver_id], cand_remain_cap[driver_id], cand_score = \
+                self.up_remove_req(cand_up_reqs[driver_id], max_req, cand_remain_cap[driver_id], cand_score)
 
-                if len(r.Driver) > 1:
-                    max_cap = -100
-                    max_d = -1
-                    for d in r.Driver:
-                        if cand_remain_cap[d] > r.RequestSize and d != to_driver_id and cand_remain_cap[d] > max_cap:
-                            max_cap = cand_remain_cap[d]
-                            max_d = d
-                    if max_d != -1: 
-                        # move the request r from to_driver_id to max_d
-                        cand_up_reqs[to_driver_id], cand_remain_cap[to_driver_id], cand_score = \
-                            self.up_remove_req(cand_up_reqs[to_driver_id], r, cand_remain_cap[to_driver_id], cand_score)
-                        cand_up_reqs[max_d], cand_remain_cap[max_d], cand_score = \
-                            self.up_add_req(cand_up_reqs[max_d], r, max_d, cand_remain_cap[max_d], cand_score)
-        # if to_driver_id's capacity is still too less, remove some reqs to the down list
-        if cand_remain_cap[to_driver_id] < 0:
-            removed_r: List[OperReq] = []
-            for i in range(len(cand_up_reqs[to_driver_id])-1, -1, -1):
-                r = cand_up_reqs[to_driver_id][i]
-                if cand_remain_cap[to_driver_id] >= 0: break
-                if r.id == max_req.id: continue
-                cand_up_reqs[to_driver_id], cand_remain_cap[to_driver_id], cand_score = \
-                    self.up_remove_req(cand_up_reqs[to_driver_id], r, cand_remain_cap[to_driver_id], cand_score)
-                removed_r.append(r)
-            for r in removed_r:
-                cand_down_reqs = self.down_add_req(cand_down_reqs, r)
-        if cand_remain_cap[to_driver_id] < 0:
-            raise AttributeError(f'{cand_remain_cap}, num_req:{len(cand_up_reqs[to_driver_id])}')
+            # find the driver max_req moved to
+            max_req_driverlist = copy.deepcopy(max_req.Driver)
+            max_req_driverlist.remove(driver_id)
+            if len(max_req_driverlist) > 1:
+                for i in range(len(max_req_driverlist)-1, -1, -1):
+                    d = max_req_driverlist[i]
+                    if self.real_cap[d] < max_req.RequestSize:
+                        max_req_driverlist.remove(d)
+                to_driver_id = random.choice(max_req_driverlist)
+            else:
+                to_driver_id = max_req_driverlist[0]
+            if self.real_cap[to_driver_id] < max_req.RequestSize:
+                raise AttributeError('self.real_cap[to_driver_id] < max_req.RequestSize')
+            
+            cand_up_reqs[to_driver_id], cand_remain_cap[to_driver_id], cand_score = \
+                self.up_add_req(cand_up_reqs[to_driver_id], max_req, to_driver_id, cand_remain_cap[to_driver_id], cand_score)
+            
+            # if to_driver_id's capacity is too less, try to move some reqs to other drivers
+            if cand_remain_cap[to_driver_id] < 0:
+                for i in range(len(cand_up_reqs[to_driver_id])-1, -1, -1):
+                    if cand_remain_cap[to_driver_id] >= 0:
+                        break
+
+                    r = cand_up_reqs[to_driver_id][i]
+                    if r.id == max_req.id:
+                        continue
+
+                    if len(r.Driver) > 1:
+                        max_cap = -100
+                        max_d = -1
+                        for d in r.Driver:
+                            if cand_remain_cap[d] > r.RequestSize and d != to_driver_id and cand_remain_cap[d] > max_cap:
+                                max_cap = cand_remain_cap[d]
+                                max_d = d
+                        if max_d != -1: 
+                            # move the request r from to_driver_id to max_d
+                            cand_up_reqs[to_driver_id], cand_remain_cap[to_driver_id], cand_score = \
+                                self.up_remove_req(cand_up_reqs[to_driver_id], r, cand_remain_cap[to_driver_id], cand_score)
+                            cand_up_reqs[max_d], cand_remain_cap[max_d], cand_score = \
+                                self.up_add_req(cand_up_reqs[max_d], r, max_d, cand_remain_cap[max_d], cand_score)
+            # if to_driver_id's capacity is still too less, remove some reqs to the down list
+            if cand_remain_cap[to_driver_id] < 0:
+                for i in range(len(cand_up_reqs[to_driver_id])-1, -1, -1):
+                    r = cand_up_reqs[to_driver_id][i]
+                    if cand_remain_cap[to_driver_id] >= 0: break
+                    if r.id == max_req.id: continue
+                    cand_up_reqs[to_driver_id], cand_remain_cap[to_driver_id], cand_score = \
+                        self.up_remove_req(cand_up_reqs[to_driver_id], r, cand_remain_cap[to_driver_id], cand_score)
+                    removed_r.append(r)
+            if cand_remain_cap[to_driver_id] < 0:
+                raise AttributeError(f'{cand_remain_cap}, num_req:{len(cand_up_reqs[to_driver_id])}')
 
         # move reqs from down to up
         for i in range(len(cand_down_reqs)):
@@ -425,6 +448,10 @@ class alns():
         for i in range(len(cand_down_reqs)-1, -1, -1):
             if cand_down_reqs[i].selected_driver != -1:
                 cand_down_reqs.remove(cand_down_reqs[i])
+        
+        # reqs be remove by to_driver_id, insert into down reqs
+        for r in removed_r:
+                cand_down_reqs = self.down_add_req(cand_down_reqs, r)
         
         for c in cand_remain_cap:
             if c < 0:
