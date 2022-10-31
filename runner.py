@@ -144,10 +144,11 @@ class Runner:
                     print(f"Total reference time:{self.total_ref_time:.6f}s")               
                     print(f"Memory occupied every schedule(MB): {self.scheduler.memory}")
                 return self.score
-
-r = Runner("demo.log")
-score = r.judge()
-print(score)
+                
+if __name__ == '__main__':
+    r = Runner("demo.log")
+    score = r.judge()
+    print(score)
         
         
         
