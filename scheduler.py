@@ -1,7 +1,6 @@
 import os
 import sys
 
-from numpy import int0
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__)) # __file__如果不行，就改成'file'
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 import string
