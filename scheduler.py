@@ -1,7 +1,6 @@
 import os
 import sys
 
-from numpy import int0
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__)) # __file__如果不行，就改成'file'
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 import string
@@ -47,6 +46,25 @@ class ReqStructure():
         self.type: string
         self.score: float
         self.selected_driver: int
+    
+    def __lt__(self, other):
+        if (self.score > other.score):
+            return True
+        elif self.score == other.score and self.RequestSize < other.RequestSize:
+            return True
+        else:
+            return False
+
+
+    def __cmp__(self, other):
+        if (self.score > other.score):
+            return -1
+        elif self.score == other.score and self.RequestSize < other.RequestSize:
+            return -1
+        elif self.score == other.score and self.RequestSize == other.RequestSize:
+            return 0
+        else:
+            return 1
 
 class DriverStructure():
     def __init__(self) -> None:
@@ -68,7 +86,7 @@ class DemoScheduler(Scheduler):
         self.score = 0
 
         # parameters
-        self.max_iteration = 1000 
+        self.max_iteration = 1000
         self.max_runtime = 2
         self.start_temp = 1000 # 100
         self.end_temp = 10  # 10
@@ -147,23 +165,9 @@ class DemoScheduler(Scheduler):
         self.num_URGENT = num_urg
 
         # sort URGENT firstly, high score, small size requests are in the frontier
-        for i in range(len(urg_requests)):
-            for j in range(i+1, len(urg_requests)):
-                if urg_requests[i].score < urg_requests[j].score or \
-                  (urg_requests[i].score == urg_requests[j].score and \
-                    urg_requests[i].RequestSize > urg_requests[j].RequestSize):
-                    tmp = urg_requests[i]
-                    urg_requests[i] = urg_requests[j]
-                    urg_requests[j] = tmp
+        urg_requests.sort()
         # sort noURGENT secondly
-        for i in range(len(nourg_requests)):
-            for j in range(i+1, len(nourg_requests)):
-                if nourg_requests[i].score < nourg_requests[j].score or \
-                  (nourg_requests[i].score == nourg_requests[j].score and \
-                    nourg_requests[i].RequestSize > nourg_requests[j].RequestSize):
-                    tmp = nourg_requests[i]
-                    nourg_requests[i] = nourg_requests[j]
-                    nourg_requests[j] = tmp
+        nourg_requests.sort()
         
         self.requests = urg_requests + nourg_requests
         # print(f'after sort, self.request:')
