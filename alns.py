@@ -50,7 +50,7 @@ class alns():
         ini_score: sum of score about wfac-bin-packing
         real_cap: real max capacity of a driver
         """
-        self.num_oper = 2
+        self.num_oper = 3
         self.num_driver = len(remain_cap)
         self.real_cap = real_cap
         self.max_iteration = max_iteraion
@@ -81,6 +81,7 @@ class alns():
     
     def iteration_alns(self):
         start_time = perf_counter()
+        self.start_time = start_time
         while not self.is_stop():
             oper_id = self.choose_prob(self.oper_prob) 
             cand_up_reqs, cand_down_reqs, cand_remain_cap, cand_score = self.operaion(oper_id=oper_id)
@@ -157,6 +158,8 @@ class alns():
             return self.operation_0()
         elif oper_id == 1:
             return self.operation_1()
+        elif oper_id == 2:
+            return self.operation_2()
         else:
             raise IndexError("Error: operaion id is not exist")
 
@@ -285,6 +288,29 @@ class alns():
         # if driver_cap < 0:
         #     raise AttributeError(f'down_remove_req: {driver_cap}')
         return cand_down_reqs, driver_cand_up_reqs, driver_cap, cand_score
+
+    def switch_driver(self, cand_up_reqs, driver_id:int, cand_remain_cap:List[int], req:OperReq):
+        driver_cands = []
+        for driver in req.Driver:
+            if driver == driver_id:
+                continue
+            if cand_remain_cap[driver] < req.RequestSize:
+                continue
+
+            driver_cands.append(driver)
+
+        if driver_cands == []:
+            return -100
+
+        target_driver = driver_cands[random.randint(0, len(driver_cands))]
+        req.selected_driver = target_driver
+        cand_up_reqs[driver_id].remove(req)
+        cand_up_reqs[target_driver].append(req)
+        cand_remain_cap[driver_id] += req.RequestSize
+        cand_remain_cap[target_driver] -= req.RequestSize
+
+        return 0
+
 
     def operation_0(self):
         """
@@ -434,3 +460,33 @@ class alns():
 
 
 
+    def operation_2(self):
+
+        """
+        switch request between available drivers
+        
+        return: candidate driver_reqs: List[List[req]], candidate down_reqs: List[req], 
+                candidate driver_remain_cap: List[int], candidate score: float
+        """
+        # create candidate solution 
+        cand_up_reqs = copy.deepcopy(self.up_reqs)
+        cand_down_reqs = copy.deepcopy(self.down_reqs)
+        cand_remain_cap = copy.deepcopy(self.remain_cap)
+        cand_score = copy.deepcopy(self.score)
+
+        driver_id = random.randint(0, self.num_driver-1)
+        if cand_up_reqs[driver_id] == []:
+            return [], [], [], -100
+
+        for req in cand_up_reqs[driver_id]: 
+            score = self.switch_driver(cand_up_reqs, driver_id, cand_remain_cap, req)
+            if score < 0:
+                return cand_up_reqs, cand_down_reqs, cand_remain_cap, cand_score + score
+            else:
+                cand_score += score
+            
+            self.runtime = perf_counter() - self.start_time
+            if self.is_stop():
+                break
+
+        return cand_up_reqs, cand_down_reqs, cand_remain_cap, cand_score
