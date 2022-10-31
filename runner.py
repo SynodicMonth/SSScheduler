@@ -6,6 +6,8 @@ import json
 
 # worst score: -172600.5
 # now score: -609.0
+# now score: -541.0
+# now score: -476.0
 class Runner:
     def __init__(self, filename, debug=True) -> None:  
         """init runner object
@@ -120,10 +122,11 @@ class Runner:
                             else:
                                 if self.debug:
                                     print(f"DriverID={driver_id} has a size of {req_size} lager than capacity remained")
+                                    raise AttributeError(f'over capacity')
                                 self.score -= 24 * ceil(req_size / 50)      
             except EOFError:
                 if self.debug:
-                    print("Final calculation")
+                    print("Final calculation")  
                     for req in self.requests:
                         req_size = req["RequestSize"]
                         req_type = req["RequestType"]
