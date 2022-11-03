@@ -1,7 +1,5 @@
 import os
 import sys
-
-from numpy import int0
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__)) # __file__如果不行，就改成'file'
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 import string
@@ -12,6 +10,7 @@ import math
 from memory_profiler import psutil
 import copy
 from alns import alns
+from concurrent import futures
 
 # worst score: -172600.5
 # now score: -609.0
@@ -20,6 +19,10 @@ from alns import alns
 # now score: 399.5
 # now score: 475.5
 # now score: 485.5, 496.0, 487.5
+# now score: 548.0
+
+# num_thread: 1  self.incre_score: 128.0  score: 497.5
+# num_thread: 4  self.incre_score: 160.0  score: 476.0
 
 URGENT = "URGENT"
 noURGENT = "noURGENT"
@@ -66,14 +69,18 @@ class DemoScheduler(Scheduler):
         self.num_URGENT = 0
         self.logical_clock = 0
         self.score = 0
+        self.incre_score = 0
 
         # parameters
         self.max_iteration = 1000 
-        self.max_runtime = 2
-        self.start_temp = 1000 # 100
+        self.max_runtime = 1.5
+        self.start_temp = 1500 # 100
         self.end_temp = 10  # 10
-        self.temp_step = 0.99 # 0.997
-        self.temp_s1 = 120     # 10 # ajust to bigger, acception prob will be smaller
+        self.temp_step = 0.99 # 0.997 0.99
+        self.temp_s1 = 180     # 10 # ajust to bigger, acception prob will be smaller
+        self.num_thread = 4     # alns thread
+        self.nourgent_addition = 3 # if nourgent's sla <= self.nourgent_addition, it will get an addtion parameter
+        self.para_alpha_add = 5  # nourgent's addition parameter
 
     def init(self, driver_num: int) -> None:
         self.driver_num = driver_num
@@ -89,6 +96,11 @@ class DemoScheduler(Scheduler):
         set request's type to URGENT or noURGENT
         return: type
         """
+        if request.RequestSize == 0:
+            return ABANDON
+        if request.RequestType == "BE" and request.now_sla < 1: # if BE overtime, we can't get score anymore
+            return ABANDON
+
         if request.now_sla > 1 :
             return noURGENT
         elif request.now_sla <= 1 and request.now_sla >= -10:  
@@ -96,10 +108,7 @@ class DemoScheduler(Scheduler):
         else:   
             # "FE" or "EM" <=-11 means req has over 12 hours, 
             # req has get biggest deduction, we can abandon it immediately
-            if request.RequestType != "BE":
-                return ABANDON
-            else:
-                return URGENT
+            return ABANDON
 
     def set_score(self, request:ReqStructure) -> int:
         """
@@ -121,12 +130,19 @@ class DemoScheduler(Scheduler):
         else:
             if request.now_sla <= 1: # set type error
                 return 10000
-            if request.RequestType == "FE":
-                return  math.ceil(request.RequestSize / 50)
-            elif request.RequestType == "BE":
-                return  0.5 * math.ceil(request.RequestSize / 50)
+            elif request.now_sla > 1 and request.now_sla <= 3: # sla = 2 or 3, its socre will be doubled
+                alpha_addition = 8
+            elif request.now_sla > 3 and request.now_sla <= 6:
+                alpha_addition = 2
             else:
-                return  2 * math.ceil(request.RequestSize / 50)
+                alpha_addition = 1
+                
+            if request.RequestType == "FE":
+                return  math.ceil(request.RequestSize / 50) * alpha_addition
+            elif request.RequestType == "BE":
+                return  0.5 * math.ceil(request.RequestSize / 50) * alpha_addition
+            else:
+                return  2 * math.ceil(request.RequestSize / 50) * alpha_addition
 
 
     def sort(self):
@@ -188,9 +204,9 @@ class DemoScheduler(Scheduler):
         """
         reqs_len = len(self.requests)
         if type == URGENT:
-            self.requests[:self.num_URGENT] = results
+            self.requests[:self.num_URGENT] = copy.deepcopy(results)
         else:
-            self.requests[self.num_URGENT:] = results
+            self.requests[self.num_URGENT:] = copy.deepcopy(results)
         assert len(self.requests) == reqs_len
 
     def wfac_algo(self, requests:List[ReqStructure], driver_cap:list):
@@ -224,6 +240,12 @@ class DemoScheduler(Scheduler):
         #     print(r.selected_driver)
         return results, score, driver_remain
 
+    def alns_algo(self, wfac_results:List[ReqStructure], wfac_remain_cap:List[int], wfac_score:int, real_cap:List[int]):
+        alns_al = alns(ini_requests=wfac_results, remain_cap=wfac_remain_cap, ini_score=wfac_score, \
+                max_iteraion=self.max_iteration, max_runtime=self.max_runtime, real_cap=real_cap, \
+                start_temp=self.start_temp, end_temp=self.end_temp, temp_step=self.temp_step, temp_s1=self.temp_s1)
+        return alns_al.iteration_alns()
+
     def type_schedule(self, type:string):
         """
         make schedule for a type of requests, 
@@ -241,30 +263,53 @@ class DemoScheduler(Scheduler):
             real_cap = self.real_cap
         else:
             real_cap = self.remain_cap
-        try:
-            alns_al = alns(ini_requests=wfac_results, remain_cap=wfac_remain_cap, ini_score=wfac_score, \
-                    max_iteraion=self.max_iteration, max_runtime=self.max_runtime, real_cap=real_cap, \
-                    start_temp=self.start_temp, end_temp=self.end_temp, temp_step=self.temp_step, temp_s1=self.temp_s1)
-            alns_results, alns_score, alns_remain_cap = alns_al.iteration_alns()
-            # raise AttributeError(f'only wfac')
-        except:
-            self.remain_cap = wfac_remain_cap
-            self.set_type_reqs(wfac_results, type)
-            self.score = wfac_score
-            return
+        # try:
+        num_thread = self.num_thread
+        pool = futures.ThreadPoolExecutor(max_workers=num_thread)
+        task: List[futures._base.Future] = []
+        for i in range(num_thread):
+            task.append(pool.submit(self.alns_algo, wfac_results, wfac_remain_cap, wfac_score, real_cap))
+
+        alns_results = []; alns_score = -100; alns_remain_cap = []
+        done_list = []
+        num_done_thread = 0
+        while True:
+            for i in range(num_thread):
+                if i not in done_list:
+                    if task[i].done():
+                        num_done_thread += 1
+                        done_list.append(i)
+                        results, score, remain_cap = task[i].result()
+                        print(score)
+                        if score >  alns_score:
+                            alns_results = copy.deepcopy(results)
+                            alns_score = score
+                            alns_remain_cap = copy.deepcopy(remain_cap)
+            if num_done_thread == num_thread:
+                break
+
+        pool.shutdown()
+        # raise AttributeError(f'only wfac')
+        # except:
+        #     self.remain_cap = wfac_remain_cap
+        #     self.set_type_reqs(wfac_results, type)
+        #     self.score = wfac_score
+        #     return
         
         self.memory.append(self.get_memory())
-        print(f'wfac_score:{wfac_score}')
-        print(f'alns_score:{alns_score}')
+        print(f'********wfac_score:{wfac_score}********')
+        print(f'********alns_score:{alns_score}********')
+        # alns_score = -1000
         if wfac_score >= alns_score:
-            self.remain_cap = wfac_remain_cap
+            self.remain_cap = copy.deepcopy(wfac_remain_cap)
             self.set_type_reqs(wfac_results, type)
             self.score = wfac_score
         else:
-            self.remain_cap = alns_remain_cap
+            self.remain_cap = copy.deepcopy(alns_remain_cap)
             self.set_type_reqs(alns_results, type)
             self.score = alns_score
-        
+            self.incre_score += (alns_score - wfac_score)
+        print(f'self.incre_score: {self.incre_score}')
 
     def excu_reqs(self) -> list:
         """

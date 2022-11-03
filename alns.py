@@ -52,7 +52,7 @@ class alns():
         """
         self.num_oper = 2
         self.num_driver = len(remain_cap)
-        self.real_cap = real_cap
+        self.real_cap = copy.deepcopy(real_cap)
         self.max_iteration = max_iteraion
         self.max_runtime = max_runtime
         self.oper_weight: List[int] = [1] * self.num_oper
@@ -62,7 +62,7 @@ class alns():
 
         self.start_temp = start_temp
         self.end_temp = end_temp
-        self.temp = self.start_temp
+        self.temp = copy.deepcopy(self.start_temp)
         self.step = temp_step
         self.s1 = temp_s1    # ajust to bigger, acception prob will be smaller
 
@@ -303,7 +303,8 @@ class alns():
         driver_id = random.randint(0, self.num_driver-1)
 
         if len(cand_up_reqs[driver_id]) > 1:
-            num_deal_req = max(1, random.choice([1, floor(0.25 * len(cand_up_reqs[driver_id])), floor(0.5 * len(cand_up_reqs[driver_id]))]))
+            num_deal_req = max(1, random.choice([1, floor(0.25 * len(cand_up_reqs[driver_id])), \
+                floor(0.5 * len(cand_up_reqs[driver_id]))]))
         elif len(cand_up_reqs[driver_id]) == 1:
             num_deal_req = 1
         else:
