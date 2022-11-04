@@ -68,6 +68,7 @@ class Runner:
         while True:
             try:
                 self.read_tick()
+                print(self.clock)
                 if self.debug:
                     caps = [x["Capacity"] for x in self.drivers]
                     print(f"CLK:{self.clock} CAP:{caps} NUM_REQ:{len(self.hour_reqs)}")
@@ -87,7 +88,7 @@ class Runner:
                 self.total_ref_time += duration
                 if self.debug:
                     print(f"reference time: {duration:.6f}s")
-                if duration > 5:
+                if duration > 5  :
                     raise TimeoutError
                 for idx, assign in enumerate(scheduled):
                     capacity = self.drivers[idx]["Capacity"]
