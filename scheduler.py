@@ -19,6 +19,7 @@ from alns import alns
 # now score: 399.5
 # now score: 475.5
 # now score: 485.5, 496.0, 487.5
+# now score: 607.0
 
 URGENT = "URGENT"
 noURGENT = "noURGENT"
@@ -86,8 +87,8 @@ class DemoScheduler(Scheduler):
         self.score = 0
 
         # parameters
-        self.max_iteration = 1000
-        self.max_runtime = 2
+        self.max_iteration = 2000
+        self.max_runtime = 4
         self.start_temp = 1000 # 100
         self.end_temp = 10  # 10
         self.temp_step = 0.99 # 0.997
@@ -109,44 +110,74 @@ class DemoScheduler(Scheduler):
         """
         if request.now_sla > 1 :
             return noURGENT
-        elif request.now_sla <= 1 and request.now_sla >= -10:  
-            return URGENT 
-        else:   
-            # "FE" or "EM" <=-11 means req has over 12 hours, 
-            # req has get biggest deduction, we can abandon it immediately
-            if request.RequestType != "BE":
+        elif request.now_sla <= 1 and request.now_sla >= -10: 
+            if request.RequestType == "BE" and request.now_sla <= 0:
                 return ABANDON
             else:
-                return URGENT
-
+                return URGENT 
+        else:   
+            return ABANDON
+            # "FE" or "EM" <=-11 means req has over 12 hours, 
+            # req has get biggest deduction, we can abandon it immediately
+            # if request.RequestType != "BE":
+            #     return ABANDON
+            # else:
+            #     return URGENT
+            
+    def CDF(self, x, _lambda):
+        # print(1.0 - math.exp(-_lambda * x))
+        return 1.0 - math.exp(-_lambda * x)
+    
+    def PDF(self, x, _lambda):
+        # print(1.0 - math.exp(-_lambda * x))
+        return _lambda * math.exp(-_lambda * x)
+    
     def set_score(self, request:ReqStructure) -> int:
         """
         computing score of the request
 
         return: score
         """
-        if request.type == URGENT:
-            if request.now_sla > 1: # set type error
-               return 0
-            # minus_hours = -(request.now_sla-2)
-            if request.RequestType == "FE":
-                return math.ceil(request.RequestSize / 50)
-            elif request.RequestType == "BE":
-                return 0.5 * math.ceil(request.RequestSize / 50)
-            else:
-                return 2 *  math.ceil(request.RequestSize / 50)
+        # if request.type == URGENT:
+        #     if request.now_sla > 1: # set type error
+        #        return 0
+        #     # minus_hours = -(request.now_sla-2)
+        #     if request.RequestType == "FE":
+        #         return math.ceil(request.RequestSize / 50)
+        #     elif request.RequestType == "BE":
+        #         return 0.5 * math.ceil(request.RequestSize / 50)
+        #     else:
+        #         return 2 *  math.ceil(request.RequestSize / 50)
        
+        # else:
+        #     if request.now_sla <= 1: # set type error
+        #         return 10000
+        #     if request.RequestType == "FE":
+        #         return  math.ceil(request.RequestSize / 50)
+        #     elif request.RequestType == "BE":
+        #         return  0.5 * math.ceil(request.RequestSize / 50)
+        #     else:
+        #         return  2 * math.ceil(request.RequestSize / 50)
+        score = 0
+        _lambda = 4
+        # lambda = 0.7 -> 509
+        # theta = 0.2
+        # x1 = 1
+        if request.RequestType == "FE":
+            score = math.ceil(request.RequestSize / 50)
+            score *= self.PDF(12 + request.now_sla, _lambda)
+            # score *= (1 - self.CDF(1.2, x1 * _lambda)) / (1 - self.CDF(1.2 - 0.1 * request.now_sla, x1 * _lambda))
+        elif request.RequestType == "BE":
+            score = 0.5 * math.ceil(request.RequestSize / 50)
+            score *= self.PDF(12 + request.now_sla, _lambda)
+            # score *= (1 - self.CDF(1.2, _lambda)) / (1 - self.CDF(1.2 - 0.1 * request.now_sla, _lambda))
         else:
-            if request.now_sla <= 1: # set type error
-                return 10000
-            if request.RequestType == "FE":
-                return  math.ceil(request.RequestSize / 50)
-            elif request.RequestType == "BE":
-                return  0.5 * math.ceil(request.RequestSize / 50)
-            else:
-                return  2 * math.ceil(request.RequestSize / 50)
-
-
+            score = 2 *  math.ceil(request.RequestSize / 50)
+            score *= self.PDF(1 + request.now_sla, _lambda)
+            # score *= (1 - self.CDF(0.1, theta * _lambda)) / (1 - self.CDF(0.1 - 0.1 * request.now_sla, theta * _lambda))
+        # print(score)
+        return score
+ 
     def sort(self):
         """
         computing request's score and insert it to request dict, 
@@ -157,17 +188,19 @@ class DemoScheduler(Scheduler):
         urg_requests: List[ReqStructure] = []
         nourg_requests: List[ReqStructure] = []
         for r in self.requests:
-            if r.type == URGENT:
-                urg_requests.append(r)
-                num_urg += 1
-            else:
-                nourg_requests.append(r)
+            urg_requests.append(r)
+            num_urg += 1
+            # if r.type == URGENT:
+            #     urg_requests.append(r)
+            #     num_urg += 1
+            # else:
+            #     nourg_requests.append(r)
         self.num_URGENT = num_urg
 
         # sort URGENT firstly, high score, small size requests are in the frontier
         urg_requests.sort()
         # sort noURGENT secondly
-        nourg_requests.sort()
+        # nourg_requests.sort()
         
         self.requests = urg_requests + nourg_requests
         # print(f'after sort, self.request:')
@@ -334,7 +367,7 @@ class DemoScheduler(Scheduler):
         self.sort()
 
         self.type_schedule(URGENT)
-        self.type_schedule(noURGENT)
+        # self.type_schedule(noURGENT)
         
         excu = self.excu_reqs()
 

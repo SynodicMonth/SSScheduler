@@ -116,6 +116,11 @@ class Runner:
                                 elif req_type == "BE":
                                     if self.clock - req_clock <= req_sla:
                                         self.score += 0.5 * ceil(req_size / 50)
+                                    else:
+                                        if self.debug:
+                                            overdue_id = self.requests[req]["RequestID"]
+                                            print(f"Request No.{overdue_id} overdue")
+                                            raise AttributeError(f'BE Overdue')
                                 else: # EM
                                     if self.clock - req_clock > req_sla:
                                         self.score -= 2 * min(12, self.clock - req_clock - req_sla) * ceil(req_size / 50)
