@@ -87,8 +87,8 @@ class DemoScheduler(Scheduler):
         self.score = 0
 
         # parameters
-        self.max_iteration = 2000
-        self.max_runtime = 4
+        self.max_iteration = 4000
+        self.max_runtime = 2
         self.start_temp = 1000 # 100
         self.end_temp = 10  # 10
         self.temp_step = 0.99 # 0.997
@@ -138,6 +138,7 @@ class DemoScheduler(Scheduler):
 
         return: score
         """
+        
         # if request.type == URGENT:
         #     if request.now_sla > 1: # set type error
         #        return 0
@@ -159,23 +160,41 @@ class DemoScheduler(Scheduler):
         #     else:
         #         return  2 * math.ceil(request.RequestSize / 50)
         score = 0
-        _lambda = 4
-        # lambda = 0.7 -> 509
-        # theta = 0.2
-        # x1 = 1
+        _lambda1 = 0.5
+        _lambda2 = 0.5
+        _lambda3 = 0.1
         if request.RequestType == "FE":
-            score = math.ceil(request.RequestSize / 50)
-            score *= self.PDF(12 + request.now_sla, _lambda)
-            # score *= (1 - self.CDF(1.2, x1 * _lambda)) / (1 - self.CDF(1.2 - 0.1 * request.now_sla, x1 * _lambda))
+            mat = math.ceil(request.RequestSize / 50)
+            sla = - request.now_sla
+            total = sum([self.PDF(x, _lambda1) for x in range(sla, 13)])
+            if sla <= 0:
+                frq = sum([x * self.PDF(x, _lambda1) / total for x in range(1, 13)])
+                score = mat * frq
+            else:
+                frq = sum([x * self.PDF(x, _lambda1) / total for x in range(sla, 13)])
+                score = mat * frq - sla * mat
         elif request.RequestType == "BE":
-            score = 0.5 * math.ceil(request.RequestSize / 50)
-            score *= self.PDF(12 + request.now_sla, _lambda)
-            # score *= (1 - self.CDF(1.2, _lambda)) / (1 - self.CDF(1.2 - 0.1 * request.now_sla, _lambda))
+            mat = 0.5 * math.ceil(request.RequestSize / 50)
+            sla = - request.now_sla
+            total = sum([self.PDF(x, _lambda2) for x in range(sla, 13)])
+            if sla <= 0:
+                frq = sum([x * self.PDF(x, _lambda2) / total for x in range(1, 13)])
+                score = mat * frq
+            else:
+                frq = sum([x * self.PDF(x, _lambda2) / total for x in range(sla, 13)])
+                score = mat * frq - sla * mat
         else:
-            score = 2 *  math.ceil(request.RequestSize / 50)
-            score *= self.PDF(1 + request.now_sla, _lambda)
-            # score *= (1 - self.CDF(0.1, theta * _lambda)) / (1 - self.CDF(0.1 - 0.1 * request.now_sla, theta * _lambda))
+            mat = 2 *  math.ceil(request.RequestSize / 50)
+            sla = - request.now_sla
+            total = sum([self.PDF(x, _lambda3) for x in range(sla, 13)])
+            if sla <= 0:
+                frq = sum([x * self.PDF(x, _lambda3) / total for x in range(1, 13)])
+                score = mat * frq
+            else:
+                frq = sum([x * self.PDF(x, _lambda3) / total for x in range(sla, 13)])
+                score = mat * frq - sla * mat
         # print(score)
+        # print(frq)
         return score
  
     def sort(self):
@@ -188,19 +207,19 @@ class DemoScheduler(Scheduler):
         urg_requests: List[ReqStructure] = []
         nourg_requests: List[ReqStructure] = []
         for r in self.requests:
-            urg_requests.append(r)
-            num_urg += 1
-            # if r.type == URGENT:
-            #     urg_requests.append(r)
-            #     num_urg += 1
-            # else:
-            #     nourg_requests.append(r)
+            # urg_requests.append(r)
+            # num_urg += 1
+            if r.type == URGENT:
+                urg_requests.append(r)
+                num_urg += 1
+            else:
+                nourg_requests.append(r)
         self.num_URGENT = num_urg
 
         # sort URGENT firstly, high score, small size requests are in the frontier
         urg_requests.sort()
         # sort noURGENT secondly
-        # nourg_requests.sort()
+        nourg_requests.sort()
         
         self.requests = urg_requests + nourg_requests
         # print(f'after sort, self.request:')
@@ -367,7 +386,7 @@ class DemoScheduler(Scheduler):
         self.sort()
 
         self.type_schedule(URGENT)
-        # self.type_schedule(noURGENT)
+        self.type_schedule(noURGENT)
         
         excu = self.excu_reqs()
 
