@@ -87,7 +87,7 @@ class DemoScheduler(Scheduler):
         self.score = 0
 
         # parameters
-        self.max_iteration = 4000
+        self.max_iteration = 2000
         self.max_runtime = 2
         self.start_temp = 1000 # 100
         self.end_temp = 10  # 10
