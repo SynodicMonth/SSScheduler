@@ -20,6 +20,7 @@ from alns import alns
 # now score: 475.5
 # now score: 485.5, 496.0, 487.5
 # now score: 607.0
+# now score: 632.5
 
 URGENT = "URGENT"
 noURGENT = "noURGENT"
@@ -85,7 +86,7 @@ class DemoScheduler(Scheduler):
         self.num_URGENT = 0
         self.logical_clock = 0
         self.score = 0
-
+        
         # parameters
         self.max_iteration = 2000
         self.max_runtime = 2
@@ -119,17 +120,18 @@ class DemoScheduler(Scheduler):
             return ABANDON
             # "FE" or "EM" <=-11 means req has over 12 hours, 
             # req has get biggest deduction, we can abandon it immediately
-            # if request.RequestType != "BE":
-            #     return ABANDON
-            # else:
-            #     return URGENT
-            
-    def CDF(self, x, _lambda):
-        # print(1.0 - math.exp(-_lambda * x))
-        return 1.0 - math.exp(-_lambda * x)
-    
-    def PDF(self, x, _lambda):
-        # print(1.0 - math.exp(-_lambda * x))
+
+    def PDF(self, x: int, _lambda: float) -> float:
+        """return exponential distribution pdf function value at point x, PDF(x)=_lambda*e^(-_lambda*x)
+
+        Args:
+            x (int): value of x
+            _lambda (float): lambda
+
+        Returns:
+            float: exponential distribution pdf function value at point x
+        """
+        
         return _lambda * math.exp(-_lambda * x)
     
     def set_score(self, request:ReqStructure) -> int:
@@ -139,62 +141,44 @@ class DemoScheduler(Scheduler):
         return: score
         """
         
-        # if request.type == URGENT:
-        #     if request.now_sla > 1: # set type error
-        #        return 0
-        #     # minus_hours = -(request.now_sla-2)
-        #     if request.RequestType == "FE":
-        #         return math.ceil(request.RequestSize / 50)
-        #     elif request.RequestType == "BE":
-        #         return 0.5 * math.ceil(request.RequestSize / 50)
-        #     else:
-        #         return 2 *  math.ceil(request.RequestSize / 50)
-       
-        # else:
-        #     if request.now_sla <= 1: # set type error
-        #         return 10000
-        #     if request.RequestType == "FE":
-        #         return  math.ceil(request.RequestSize / 50)
-        #     elif request.RequestType == "BE":
-        #         return  0.5 * math.ceil(request.RequestSize / 50)
-        #     else:
-        #         return  2 * math.ceil(request.RequestSize / 50)
         score = 0
         _lambda1 = 0.5
-        _lambda2 = 0.5
+        _lambda2 = 0.2
         _lambda3 = 0.1
+        
         if request.RequestType == "FE":
-            mat = math.ceil(request.RequestSize / 50)
-            sla = - request.now_sla
-            total = sum([self.PDF(x, _lambda1) for x in range(sla, 13)])
-            if sla <= 0:
-                frq = sum([x * self.PDF(x, _lambda1) / total for x in range(1, 13)])
-                score = mat * frq
+            multiplier = math.ceil(request.RequestSize / 50)
+            transformed_sla = - request.now_sla
+            total = sum([self.PDF(x, _lambda1) for x in range(transformed_sla, 13)])
+            if transformed_sla <= 0:
+                expectation = sum([x * self.PDF(x, _lambda1) for x in range(1, 13)]) / total
+                score = multiplier * expectation
             else:
-                frq = sum([x * self.PDF(x, _lambda1) / total for x in range(sla, 13)])
-                score = mat * frq - sla * mat
+                expectation = sum([x * self.PDF(x, _lambda1) for x in range(transformed_sla, 13)]) / total
+                score = multiplier * (expectation - transformed_sla)
         elif request.RequestType == "BE":
-            mat = 0.5 * math.ceil(request.RequestSize / 50)
-            sla = - request.now_sla
-            total = sum([self.PDF(x, _lambda2) for x in range(sla, 13)])
-            if sla <= 0:
-                frq = sum([x * self.PDF(x, _lambda2) / total for x in range(1, 13)])
-                score = mat * frq
+            multiplier = 0.5 * math.ceil(request.RequestSize / 50)
+            transformed_sla = - request.now_sla
+            total = sum([self.PDF(x, _lambda2) for x in range(transformed_sla, 13)])
+            if transformed_sla <= 0:
+                expectation = sum([self.PDF(x, _lambda2) for x in range(0, 13)]) / total
+                score = multiplier * expectation
             else:
-                frq = sum([x * self.PDF(x, _lambda2) / total for x in range(sla, 13)])
-                score = mat * frq - sla * mat
+                expectation = sum([self.PDF(x, _lambda2) for x in range(transformed_sla, 13)]) / total
+                score = 0
         else:
-            mat = 2 *  math.ceil(request.RequestSize / 50)
-            sla = - request.now_sla
-            total = sum([self.PDF(x, _lambda3) for x in range(sla, 13)])
-            if sla <= 0:
-                frq = sum([x * self.PDF(x, _lambda3) / total for x in range(1, 13)])
-                score = mat * frq
+            multiplier = 2 * math.ceil(request.RequestSize / 50)
+            transformed_sla = - request.now_sla
+            total = sum([self.PDF(x, _lambda3) for x in range(transformed_sla, 13)])
+            if transformed_sla <= 0:
+                expectation = sum([x * self.PDF(x, _lambda3) for x in range(1, 13)]) / total
+                score = multiplier * expectation
             else:
-                frq = sum([x * self.PDF(x, _lambda3) / total for x in range(sla, 13)])
-                score = mat * frq - sla * mat
-        # print(score)
-        # print(frq)
+                expectation = sum([x * self.PDF(x, _lambda3) for x in range(transformed_sla, 13)]) / total
+                score = multiplier * (expectation - transformed_sla)
+        
+        # print(f"{request.RequestType}, {sla}, {score}")
+
         return score
  
     def sort(self):
