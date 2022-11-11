@@ -22,9 +22,9 @@ Smart Storage Scheduler for 2022 Massive Storage Competition
 假定每个Request在提交时超时的时长(transformed_sla，>0表示超时，<0未超时)近似遵循指数分布
 $$pdf(x)=\lambda e^{-\lambda x}$$
 此处暂时进行离散化和归一化（实际上是我没找到理论上合理的归一化方法，这里可能有问题），令
-$$P\{X=x\}=\frac{pdf(x)}{\sum_{i=-12}^{12}pdf(i)}$$
+$$P(X=x)=\frac{pdf(x)}{\sum_{i=-12}^{12}pdf(i)}$$
 对于每一个Req，设它最终提交时超时的时长为x（可以小于0），现在已知这一轮已经超时y，则有
-$$f(x)=P\{X=x|X\ge y\}=
+$$f(x)=P(X=x|X\ge y)=
   \begin{cases}
     \frac{pdf(x)}{\sum_{i=y}^{12}pdf(i)} & x\ge y \ ,\\
     0 & x < y \ .
