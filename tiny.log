@@ -1,11 +1,11 @@
 d{"DriverID": 0, "Capacity": 100, "LogicalClock": 0}
-r00000000{"RequestID": 0, "RequestType": "FE", "SLA": 6, "Driver": [0], "RequestSize": 100, "LogicalClock": 0}
+r00000000{"RequestID": 0, "RequestType": "FE", "SLA": 5, "Driver": [0], "RequestSize": 100, "LogicalClock": 0}
 d{"DriverID": 0, "Capacity": 100, "LogicalClock": 0}
-r00000001{"RequestID": 0, "RequestType": "EM", "SLA": 1, "Driver": [0], "RequestSize": 100, "LogicalClock": 1}
+r00000001{"RequestID": 0, "RequestType": "BE", "SLA": 4, "Driver": [0], "RequestSize": 100, "LogicalClock": 1}
 d{"DriverID": 0, "Capacity": 100, "LogicalClock": 0}
-r00000002{"RequestID": 0, "RequestType": "EM", "SLA": 1, "Driver": [0], "RequestSize": 100, "LogicalClock": 2}
+r00000002{"RequestID": 0, "RequestType": "EM", "SLA": 3, "Driver": [0], "RequestSize": 100, "LogicalClock": 2}
 d{"DriverID": 0, "Capacity": 100, "LogicalClock": 0}
-r00000003{"RequestID": 0, "RequestType": "EM", "SLA": 1, "Driver": [0], "RequestSize": 100, "LogicalClock": 3}
+r00000003{"RequestID": 0, "RequestType": "EM", "SLA": 2, "Driver": [0], "RequestSize": 100, "LogicalClock": 3}
 d{"DriverID": 0, "Capacity": 100, "LogicalClock": 0}
 r00000004{"RequestID": 0, "RequestType": "EM", "SLA": 1, "Driver": [0], "RequestSize": 100, "LogicalClock": 4}
 d{"DriverID": 0, "Capacity": 100, "LogicalClock": 0}
